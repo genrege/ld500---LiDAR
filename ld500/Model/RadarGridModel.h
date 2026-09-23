@@ -1,0 +1,67 @@
+#pragma once
+
+// Portable captured-data model: the cartesian intensity/persistence/freshness grid that radar
+// readings are plotted into. No Windows dependency, so this is a candidate to reuse as-is on a
+// future microcontroller port.
+
+#include <cstdint>
+#include <vector>
+#include <mutex>
+#include <atomic>
+#include "RadarTypes.h"
+
+// Grid is GRID_SIZE x GRID_SIZE cells
+constexpr int GRID_SIZE = 1000;
+constexpr int CELL_DECAY_INTERVAL_MS = 12;       // How often (ms) each nonzero cell decrements by 1 (~3s full fade)
+constexpr double ZOOM_MIN_METERS = 1.0;          // Nearest zoom range selectable on the slider
+constexpr double ZOOM_MAX_METERS = 20.0;         // Farthest zoom range selectable on the slider
+constexpr double ZOOM_DEFAULT_METERS = 4.0;      // Initial physical distance (m) spanned by half the grid
+constexpr uint8_t STATIC_GROWTH_PER_HIT = 8;     // Persistence gained per re-hit on an already-active cell
+constexpr int FRESH_MARKER_FRAMES = 20;          // How many paint frames the green "new detection" marker stays visible
+
+// Read-only copy of the grid state for a single render/tracking pass.
+struct RadarGridSnapshot {
+    std::vector<uint8_t> intensity;
+    std::vector<uint8_t> persistence;
+    std::vector<uint8_t> fresh;
+    int resetGeneration = 0;
+};
+
+// Cartesian occupancy/fade grid that radar readings are plotted into. Owns its own locking so
+// acquisition threads, decay threads, and the renderer can all touch it safely.
+//
+// TODO(microcontroller port): IngestReadings() calls cos()/sin() per point in double precision.
+// Before targeting hardware without a hardware FP64 unit, replace this with a precomputed sin/cos
+// lookup table indexed by the sensor's discrete angle output resolution (LD500 start/end angle
+// fields are 0.01-degree units) instead of calling cos()/sin() at runtime.
+class RadarGridModel {
+public:
+    RadarGridModel();
+
+    // Plots each in-range reading into the grid at the current zoom scale, growing persistence on
+    // repeat hits and arming the fresh-detection marker on cells transitioning from cold to hot.
+    void IngestReadings(const std::vector<RadarReading>& readings);
+
+    // Decays every active cell's intensity by one step; cells reaching zero reset persistence/fresh.
+    void TickDecay();
+
+    // Counts down the fresh-detection marker on cells that still have one armed.
+    void TickFreshMarkers();
+
+    // Updates the zoom scale and, if it actually changed, clears all grids and bumps the reset
+    // generation so consumers (e.g. object tracking) know to drop stale state.
+    void SetZoomMeters(double zoomMeters);
+    double GetZoomMeters() const;
+    int GetResetGeneration() const;
+
+    // Thread-safe copy of the grids for a single paint/tracking pass.
+    RadarGridSnapshot Snapshot() const;
+
+private:
+    mutable std::mutex   m_Mutex;
+    std::vector<uint8_t> m_IntensityGrid;
+    std::vector<uint8_t> m_PersistenceGrid;
+    std::vector<uint8_t> m_FreshGrid;
+    std::atomic<double>  m_ZoomMeters;
+    std::atomic<int>     m_ResetGeneration;
+};
