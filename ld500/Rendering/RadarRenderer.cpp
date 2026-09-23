@@ -3,7 +3,9 @@
 #include <tuple>
 #include <vector>
 #include <mutex>
+#include <climits>
 #include "SerialPort.h"
+#include "GdiHudSurface.h"
 
 namespace {
     // Off-screen DIB section used to write grid pixel colors directly, then blit onto the display buffer
@@ -16,6 +18,70 @@ namespace {
     // Custom-drawn (non-common-control) vertical zoom slider state: an open green frame with white
     // tick marks and a green thumb, tracked entirely via mouse messages in the caller's WndProc.
     RECT s_ZoomSliderRect = { 0, 0, 0, 0 };
+
+    constexpr int SHADOW_ANGLE_BUCKETS = 3600; // 0.1-degree buckets
+
+    // Precomputed angle bucket for every grid cell relative to the grid center, built once on first
+    // use so ComputeShadowMask() below never needs a per-frame atan2() call.
+    const std::vector<uint16_t>& ShadowAngleBucketTable() {
+        static const std::vector<uint16_t> table = [] {
+            std::vector<uint16_t> t(static_cast<size_t>(GRID_SIZE) * GRID_SIZE, 0);
+            constexpr int center = GRID_SIZE / 2;
+            for (int y = 0; y < GRID_SIZE; ++y) {
+                for (int x = 0; x < GRID_SIZE; ++x) {
+                    double angle = std::atan2(static_cast<double>(y - center), static_cast<double>(x - center));
+                    if (angle < 0.0) angle += 2.0 * PI;
+                    int bucket = static_cast<int>(angle / (2.0 * PI) * SHADOW_ANGLE_BUCKETS);
+                    if (bucket >= SHADOW_ANGLE_BUCKETS) bucket = SHADOW_ANGLE_BUCKETS - 1;
+                    t[static_cast<size_t>(y) * GRID_SIZE + x] = static_cast<uint16_t>(bucket);
+                }
+            }
+            return t;
+            }();
+        return table;
+    }
+
+    // Marks background cells occluded from the sensor by a nearer object: a 2D LIDAR only reports
+    // the first return along each ray, so anything past that hit is unknown, not empty. For every
+    // angular bucket, finds the nearest hit's radius and shades every farther background cell in
+    // that bucket - a full raster scan rather than ray-marching, so there are no angular gaps
+    // (moire/patchiness) at larger radii. Explicitly clipped to the grid's inscribed circle so
+    // shadows never bleed into the square grid's corners, outside the circular HUD.
+    std::vector<uint8_t> ComputeShadowMask(const std::vector<uint8_t>& intensityGrid) {
+        constexpr int center = GRID_SIZE / 2;
+        constexpr int maxRadiusSq = center * center;
+        const std::vector<uint16_t>& angleBucket = ShadowAngleBucketTable();
+
+        std::vector<int> nearestHitRadiusSq(SHADOW_ANGLE_BUCKETS, INT_MAX);
+        for (int y = 0; y < GRID_SIZE; ++y) {
+            int dy = y - center;
+            for (int x = 0; x < GRID_SIZE; ++x) {
+                size_t cellIndex = static_cast<size_t>(y) * GRID_SIZE + x;
+                if (intensityGrid[cellIndex] == 0) continue;
+                int dx = x - center;
+                int radiusSq = dx * dx + dy * dy;
+                if (radiusSq > maxRadiusSq) continue;
+                uint16_t bucket = angleBucket[cellIndex];
+                if (radiusSq < nearestHitRadiusSq[bucket]) nearestHitRadiusSq[bucket] = radiusSq;
+            }
+        }
+
+        std::vector<uint8_t> shadowMask(static_cast<size_t>(GRID_SIZE) * GRID_SIZE, 0);
+        for (int y = 0; y < GRID_SIZE; ++y) {
+            int dy = y - center;
+            for (int x = 0; x < GRID_SIZE; ++x) {
+                size_t cellIndex = static_cast<size_t>(y) * GRID_SIZE + x;
+                if (intensityGrid[cellIndex] != 0) continue;
+                int dx = x - center;
+                int radiusSq = dx * dx + dy * dy;
+                if (radiusSq > maxRadiusSq) continue;
+                if (radiusSq > nearestHitRadiusSq[angleBucket[cellIndex]]) {
+                    shadowMask[cellIndex] = 1;
+                }
+            }
+        }
+        return shadowMask;
+    }
 
     // Returns the thumb's center Y pixel coordinate for the current zoom value.
     int SliderYFromZoom(double zoomMeters) {
@@ -131,7 +197,7 @@ namespace RadarRenderer {
         return PtInRect(&hitRect, pt) != FALSE;
     }
 
-    void PaintRadar(HDC hdc, HWND hwnd, RadarGridModel& model, ObjectTracker& tracker, bool trackingEnabled) {
+    void PaintRadar(HDC hdc, HWND hwnd, RadarGridModel& model, ObjectTracker& tracker, bool trackingEnabled, bool shadowCastEnabled) {
         // Double buffering layer instantiation to block window monitor screen flickers
         RECT rect;
         GetClientRect(hwnd, &rect);
@@ -162,15 +228,31 @@ namespace RadarRenderer {
         // Marks cells that are newly detected this frame (transition from no point to a point),
         // used to suppress duplicate markers for cells belonging to the same physical cluster.
         std::vector<uint8_t> freshMask(static_cast<size_t>(GRID_SIZE) * GRID_SIZE, 0);
+        std::vector<uint8_t> shadowMask;
+        if (shadowCastEnabled) {
+            shadowMask = ComputeShadowMask(snapshot.intensity);
+        }
         const int stride = GRID_SIZE * 3; // 24bpp, GRID_SIZE*3 is already 4-byte aligned
+        constexpr int gridCenter = GRID_SIZE / 2;
+        constexpr int gridMaxRadiusSq = gridCenter * gridCenter; // circular HUD boundary in grid space
         for (int y = 0; y < GRID_SIZE; ++y) {
             uint8_t* row = s_pGridBits + static_cast<size_t>(y) * stride;
+            int dy = y - gridCenter;
             for (int x = 0; x < GRID_SIZE; ++x) {
                 size_t cellIndex = static_cast<size_t>(y) * GRID_SIZE + x;
                 uint8_t intensity = snapshot.intensity[cellIndex];
                 BYTE r, g, b;
                 if (intensity == 0) {
-                    r = 10; g = 16; b = 10; // Background color
+                    int dx = x - gridCenter;
+                    if (dx * dx + dy * dy > gridMaxRadiusSq) {
+                        r = 0; g = 0; b = 0; // Outside the circular HUD: solid black, not the greenish background
+                    }
+                    else if (shadowCastEnabled && shadowMask[cellIndex]) {
+                        r = 0; g = 6; b = 0; // Very dark green, darker than the plain background: occluded from the sensor
+                    }
+                    else {
+                        r = 10; g = 16; b = 10; // Background color
+                    }
                 }
                 // A cell still counting down its freshness marker is a recent new detection (transition
                 // from no point to a point); it holds steady for several frames instead of flickering.
@@ -233,8 +315,8 @@ namespace RadarRenderer {
             }
         }
 
-        // Fill background colors
-        HBRUSH hBackground = CreateSolidBrush(RGB(10, 16, 10));
+        // Fill the window background black; only the circular HUD blitted below gets any color
+        HBRUSH hBackground = CreateSolidBrush(RGB(0, 0, 0));
         FillRect(hdcMem, &rect, hBackground);
         DeleteObject(hBackground);
 
@@ -347,7 +429,8 @@ namespace RadarRenderer {
         bool hudPortConnected = g_hSerial.load(std::memory_order_acquire) != INVALID_HANDLE_VALUE;
         swprintf_s(hudText, L"LD500 SCOPE %s | %s @ %u BAUD | MAX: %.1fm | DATA POINTS: %d",
             hudPortConnected ? L"ACTIVE" : L"DISCONNECTED", hudPortName.c_str(), hudBaudRate, currentZoomMeters, visiblePointCount);
-        TextOutW(hdcMem, 15, 15, hudText, lstrlenW(hudText));
+        GdiHudSurface hudSurface(hdcMem);
+        hudSurface.DrawHudText(15, 15, hudText);
 
         // Custom green-frame vertical zoom slider with white tick marks, on the RHS of the HUD.
         DrawZoomSlider(hdcMem, currentZoomMeters);

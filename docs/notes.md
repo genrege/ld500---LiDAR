@@ -63,8 +63,49 @@ Windows-specific:
 - Trig lookup table precache (see TODO above) is recorded as a follow-up only, not implemented here.
 
 ## Further follow-ups (not in scope for this refactor)
-1. Graphics-primitives abstraction layer: introduce an interface (DrawLine/DrawEllipse/DrawText/
-   FillRect/Blit-style) that all UI rendering goes through, with `RadarRenderer.cpp` becoming the
-   first (Win32 GDI) implementation behind it. Goal: let a future microcontroller port swap in a
-   different backend (e.g. a small LCD/framebuffer driver) without touching `PaintRadar()`'s drawing
-   logic. Do this as a later pass once the current file-split lands and builds cleanly.
+1. Graphics-primitives abstraction layer: DONE for the HUD status line only (per user's scoped-down
+   request) - `Rendering/IHudSurface.h` defines `DrawHudText()`, `Rendering/GdiHudSurface.h/.cpp` is
+   the Win32 GDI implementation, and `RadarRenderer.cpp`'s HUD block now goes through it instead of
+   calling `TextOutW` directly. Everything else in `PaintRadar()` (grid blit, ellipses, lines, zoom
+   slider) still calls GDI directly - not abstracted, per user's explicit scope-down.
+2. Trig lookup table: DONE - `RadarGridModel.cpp` now has an anonymous-namespace `TrigLookupTable()`
+   (36000 entries, one per 0.01-degree step the LD500 can output) built once on first use;
+   `IngestReadings()` looks up cos/sin from it via `AngleToLutIndex()` instead of calling cos()/sin()
+   per point.
+
+Build not re-verified after these two changes yet (user skipped the msbuild re-run) - do that before
+considering this fully done.
+
+## LIDAR orientation offset (new feature)
+- `Model/RadarGridModel.h/.cpp`: `SetAngleOffsetDegrees()`/`GetAngleOffsetDegrees()`, applied to every
+  reading's angle in `IngestReadings()` before the LUT lookup; wraps to [0, 360) and clears the grids
+  on change (shares a new `ResetGridsLocked()` helper with `SetZoomMeters()`).
+- `Acquisition/AppSettings.h/.cpp` (new): `LoadAngleOffsetDegrees()`/`SaveAngleOffsetDegrees()`,
+  registry-backed at `HKCU\Software\LD500\AngleOffsetDegrees` (REG_DWORD, whole degrees). Saved
+  immediately on dialog OK; loaded once in `WinMain` before the acquisition threads start.
+- `UI/Dialogs.h/.cpp`: new `SettingsDlgProc` - edit box for the offset, applies to `g_GridModel` and
+  persists to the registry on OK.
+- New `File > Settings...` menu item (`IDM_SETTINGS`) and `IDD_SETTINGS` dialog template in `ld500.rc`.
+- Build not yet re-verified for this feature either (user skipped the queued rebuild) - do that plus
+  a manual test (change offset, restart app, confirm it's remembered) before considering this done.
+
+## Radar shadow cast + registry-persisted toggles (new features)
+- `Rendering/RadarRenderer.cpp`: `ComputeShadowMask()` flags background cells occluded by a nearer
+  object, painted very dark green (`RGB(0,6,0)`, darker than the `RGB(10,16,10)` background) instead
+  of the normal background color; `PaintRadar()` takes a `shadowCastEnabled` param.
+  - Reworked from an initial ray-marching approach (720 rays) that left angular gaps/moire at larger
+    radii - now a gap-free full raster scan: a precomputed per-cell angle-bucket table (built once,
+    3600 buckets) plus a per-bucket "nearest hit radius" pass, so every cell is visited exactly once
+    with no aliasing. Explicitly clipped to the grid's inscribed circle (`radiusSq <= center^2`) so
+    shadows never extend past the circular HUD.
+- Menu: `Settings > Enable Tracking` / `Settings > Show Radar Shadow` (moved off the old separate
+  Tracking/View menus into one `&Settings` menu alongside `Orientation...`), `IDM_TOGGLE_SHADOW`
+  mirrors the Tracking toggle: `g_ShadowCastEnabled` atomic in `UI/MainWindow.h/.cpp`.
+- Registry persistence extended to all three toggles/settings (`Acquisition/AppSettings.h/.cpp`,
+  `HKCU\Software\LD500`): `AngleOffsetDegrees` (DWORD, whole degrees), `TrackingEnabled` (DWORD 0/1),
+  `ShadowCastEnabled` (DWORD 0/1). Tracking/Shadow are saved immediately on menu toggle and loaded
+  once in `WinMain` right after `CreateMainWindow`, then reflected in the menu checkmarks.
+- Verified: Debug|x64 builds with 0 errors/warnings after the shadow-mask rework.
+- Still TODO: manual smoke test (toggle Tracking/Shadow, restart app, confirm state and shadow
+  rendering are remembered/correct and no longer patchy).
+

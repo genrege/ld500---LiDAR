@@ -5,6 +5,7 @@
 #include "Resource.h"
 #include "SerialPort.h"
 #include "AppWorkers.h"
+#include "AppSettings.h"
 #include "RadarRenderer.h"
 #include "MainWindow.h"
 
@@ -25,6 +26,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     }
 
     RadarRenderer::Init();
+    g_GridModel.SetAngleOffsetDegrees(LoadAngleOffsetDegrees());
 
     HANDLE hThread = CreateThread(NULL, 0, SerialReadThread, &g_GridModel, 0, NULL);
     HANDLE hDecayThread = CreateThread(NULL, 0, DecayThread, &g_GridModel, 0, NULL);
@@ -33,6 +35,17 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     RegisterMainWindowClass(hInstance);
     HWND hwnd = CreateMainWindow(hInstance, nCmdShow);
     if (hwnd == NULL) return 0;
+
+    // Restore the persisted Tracking/Shadow toggles and reflect them in the menu checkmarks.
+    g_TrackingEnabled.store(LoadTrackingEnabled(), std::memory_order_relaxed);
+    g_ShadowCastEnabled.store(LoadShadowCastEnabled(), std::memory_order_relaxed);
+    HMENU hMenu = GetMenu(hwnd);
+    if (hMenu) {
+        CheckMenuItem(hMenu, IDM_TOGGLE_TRACKING,
+            MF_BYCOMMAND | (g_TrackingEnabled.load(std::memory_order_relaxed) ? MF_CHECKED : MF_UNCHECKED));
+        CheckMenuItem(hMenu, IDM_TOGGLE_SHADOW,
+            MF_BYCOMMAND | (g_ShadowCastEnabled.load(std::memory_order_relaxed) ? MF_CHECKED : MF_UNCHECKED));
+    }
 
     // Dynamic UI refresh pump using a basic WM_PAINT trigger loop
     MSG msg = { 0 };

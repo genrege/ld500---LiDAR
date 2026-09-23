@@ -21,5 +21,6 @@ namespace RadarRenderer {
     bool HitTestZoomSlider(int x, int y);
 
     // Renders one full frame (grid, fresh/track markers, rings, HUD, zoom slider) into hdc.
-    void PaintRadar(HDC hdc, HWND hwnd, RadarGridModel& model, ObjectTracker& tracker, bool trackingEnabled);
+    // shadowCastEnabled shades cells occluded from the sensor by a nearer object very dark green.
+    void PaintRadar(HDC hdc, HWND hwnd, RadarGridModel& model, ObjectTracker& tracker, bool trackingEnabled, bool shadowCastEnabled);
 }

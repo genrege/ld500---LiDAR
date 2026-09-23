@@ -51,6 +51,9 @@
     <ClInclude Include="Acquisition\AppWorkers.h">
       <Filter>Acquisition</Filter>
     </ClInclude>
+    <ClInclude Include="Acquisition\AppSettings.h">
+      <Filter>Acquisition</Filter>
+    </ClInclude>
     <ClInclude Include="Model\RadarGridModel.h">
       <Filter>Model</Filter>
     </ClInclude>
@@ -58,6 +61,12 @@
       <Filter>Model</Filter>
     </ClInclude>
     <ClInclude Include="Rendering\RadarRenderer.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\IHudSurface.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\GdiHudSurface.h">
       <Filter>Rendering</Filter>
     </ClInclude>
     <ClInclude Include="UI\Dialogs.h">
@@ -80,6 +89,9 @@
     <ClCompile Include="Acquisition\AppWorkers.cpp">
       <Filter>Acquisition</Filter>
     </ClCompile>
+    <ClCompile Include="Acquisition\AppSettings.cpp">
+      <Filter>Acquisition</Filter>
+    </ClCompile>
     <ClCompile Include="Model\RadarGridModel.cpp">
       <Filter>Model</Filter>
     </ClCompile>
@@ -87,6 +99,9 @@
       <Filter>Model</Filter>
     </ClCompile>
     <ClCompile Include="Rendering\RadarRenderer.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\GdiHudSurface.cpp">
       <Filter>Rendering</Filter>
     </ClCompile>
     <ClCompile Include="UI\Dialogs.cpp">

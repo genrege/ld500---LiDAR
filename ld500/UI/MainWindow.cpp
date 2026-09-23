@@ -4,10 +4,12 @@
 #include "RadarRenderer.h"
 #include "Dialogs.h"
 #include "SerialPort.h"
+#include "AppSettings.h"
 
 RadarGridModel    g_GridModel;
 ObjectTracker     g_Tracker;
 std::atomic<bool> g_TrackingEnabled(false);
+std::atomic<bool> g_ShadowCastEnabled(false);
 
 namespace {
     bool s_ZoomSliderDragging = false;
@@ -20,6 +22,10 @@ namespace {
         }
         case WM_COMMAND: {
             switch (LOWORD(wParam)) {
+            case IDM_SETTINGS:
+                DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_SETTINGS), hwnd, SettingsDlgProc);
+                InvalidateRect(hwnd, NULL, FALSE);
+                return 0;
             case IDM_MANAGE_PORTS:
                 DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_PORTS), hwnd, PortManagerDlgProc);
                 InvalidateRect(hwnd, NULL, FALSE);
@@ -27,9 +33,21 @@ namespace {
             case IDM_TOGGLE_TRACKING: {
                 bool newState = !g_TrackingEnabled.load(std::memory_order_relaxed);
                 g_TrackingEnabled.store(newState, std::memory_order_relaxed);
+                SaveTrackingEnabled(newState);
                 HMENU hMenu = GetMenu(hwnd);
                 if (hMenu) {
                     CheckMenuItem(hMenu, IDM_TOGGLE_TRACKING, MF_BYCOMMAND | (newState ? MF_CHECKED : MF_UNCHECKED));
+                }
+                InvalidateRect(hwnd, NULL, FALSE);
+                return 0;
+            }
+            case IDM_TOGGLE_SHADOW: {
+                bool newState = !g_ShadowCastEnabled.load(std::memory_order_relaxed);
+                g_ShadowCastEnabled.store(newState, std::memory_order_relaxed);
+                SaveShadowCastEnabled(newState);
+                HMENU hMenu = GetMenu(hwnd);
+                if (hMenu) {
+                    CheckMenuItem(hMenu, IDM_TOGGLE_SHADOW, MF_BYCOMMAND | (newState ? MF_CHECKED : MF_UNCHECKED));
                 }
                 InvalidateRect(hwnd, NULL, FALSE);
                 return 0;
@@ -76,7 +94,9 @@ namespace {
         case WM_PAINT: {
             PAINTSTRUCT ps;
             HDC hdc = BeginPaint(hwnd, &ps);
-            RadarRenderer::PaintRadar(hdc, hwnd, g_GridModel, g_Tracker, g_TrackingEnabled.load(std::memory_order_relaxed));
+            RadarRenderer::PaintRadar(hdc, hwnd, g_GridModel, g_Tracker,
+                g_TrackingEnabled.load(std::memory_order_relaxed),
+                g_ShadowCastEnabled.load(std::memory_order_relaxed));
             EndPaint(hwnd, &ps);
             return 0;
         }

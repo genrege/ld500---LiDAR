@@ -151,9 +151,12 @@
     <ClInclude Include="Acquisition\RadarProtocol.h" />
     <ClInclude Include="Acquisition\SerialPort.h" />
     <ClInclude Include="Acquisition\AppWorkers.h" />
+    <ClInclude Include="Acquisition\AppSettings.h" />
     <ClInclude Include="Model\RadarGridModel.h" />
     <ClInclude Include="Model\ObjectTracking.h" />
     <ClInclude Include="Rendering\RadarRenderer.h" />
+    <ClInclude Include="Rendering\IHudSurface.h" />
+    <ClInclude Include="Rendering\GdiHudSurface.h" />
     <ClInclude Include="UI\Dialogs.h" />
     <ClInclude Include="UI\MainWindow.h" />
   </ItemGroup>
@@ -162,9 +165,11 @@
     <ClCompile Include="Acquisition\RadarProtocol.cpp" />
     <ClCompile Include="Acquisition\SerialPort.cpp" />
     <ClCompile Include="Acquisition\AppWorkers.cpp" />
+    <ClCompile Include="Acquisition\AppSettings.cpp" />
     <ClCompile Include="Model\RadarGridModel.cpp" />
     <ClCompile Include="Model\ObjectTracking.cpp" />
     <ClCompile Include="Rendering\RadarRenderer.cpp" />
+    <ClCompile Include="Rendering\GdiHudSurface.cpp" />
     <ClCompile Include="UI\Dialogs.cpp" />
     <ClCompile Include="UI\MainWindow.cpp" />
   </ItemGroup>
