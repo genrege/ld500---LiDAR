@@ -1,6 +1,8 @@
 #include "Dialogs.h"
 #include "Resource.h"
 #include "SerialPort.h"
+#include "AppSettings.h"
+#include "MainWindow.h"
 
 // Refreshes the Manage Ports dialog's list box with the currently detected serial ports and their
 // connected device descriptions, preserving the current connection's selection where possible.
@@ -87,6 +89,35 @@ INT_PTR CALLBACK AboutDlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
     case WM_COMMAND:
         if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL) {
             EndDialog(hDlg, LOWORD(wParam));
+            return (INT_PTR)TRUE;
+        }
+        break;
+    }
+    return (INT_PTR)FALSE;
+}
+
+// Settings dialog procedure: edits the LIDAR orientation offset, saving to the registry and
+// applying it to the live grid model immediately on OK.
+INT_PTR CALLBACK SettingsDlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) {
+    switch (message) {
+    case WM_INITDIALOG:
+        SetDlgItemInt(hDlg, IDC_SETTINGS_ANGLE_OFFSET,
+            static_cast<UINT>(g_GridModel.GetAngleOffsetDegrees()), FALSE);
+        return (INT_PTR)TRUE;
+
+    case WM_COMMAND:
+        switch (LOWORD(wParam)) {
+        case IDOK: {
+            BOOL translated = FALSE;
+            UINT rawValue = GetDlgItemInt(hDlg, IDC_SETTINGS_ANGLE_OFFSET, &translated, FALSE);
+            double offsetDegrees = translated ? static_cast<double>(rawValue % 360) : 0.0;
+            g_GridModel.SetAngleOffsetDegrees(offsetDegrees);
+            SaveAngleOffsetDegrees(offsetDegrees);
+            EndDialog(hDlg, IDOK);
+            return (INT_PTR)TRUE;
+        }
+        case IDCANCEL:
+            EndDialog(hDlg, IDCANCEL);
             return (INT_PTR)TRUE;
         }
         break;

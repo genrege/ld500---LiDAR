@@ -30,10 +30,10 @@ struct RadarGridSnapshot {
 // Cartesian occupancy/fade grid that radar readings are plotted into. Owns its own locking so
 // acquisition threads, decay threads, and the renderer can all touch it safely.
 //
-// TODO(microcontroller port): IngestReadings() calls cos()/sin() per point in double precision.
-// Before targeting hardware without a hardware FP64 unit, replace this with a precomputed sin/cos
-// lookup table indexed by the sensor's discrete angle output resolution (LD500 start/end angle
-// fields are 0.01-degree units) instead of calling cos()/sin() at runtime.
+// IngestReadings() looks up cos()/sin() from a table precomputed at construction time (see
+// RadarGridModel.cpp), keyed to the sensor's discrete angle output resolution (LD500 start/end
+// angle fields are 0.01-degree units), instead of calling cos()/sin() per point at runtime - this
+// keeps the hot ingestion path free of floating-point trig calls for a future microcontroller port.
 class RadarGridModel {
 public:
     RadarGridModel();
@@ -52,16 +52,34 @@ public:
     // generation so consumers (e.g. object tracking) know to drop stale state.
     void SetZoomMeters(double zoomMeters);
     double GetZoomMeters() const;
+
+    // Updates the LIDAR mounting/orientation offset (degrees, wraps to [0, 360)) added to every
+    // incoming reading's angle before it's plotted. Clears all grids on change like SetZoomMeters()
+    // does, since previously plotted points are no longer valid at the new orientation.
+    void SetAngleOffsetDegrees(double offsetDegrees);
+    double GetAngleOffsetDegrees() const;
+
+    // Enables/disables persistence growth on repeat hits (the effect that trends static objects
+    // toward brighter green and excludes them from object tracking). Disabling immediately clears
+    // the persistence grid so any existing highlighting reverts right away.
+    void SetPersistenceEnabled(bool enabled);
+    bool GetPersistenceEnabled() const;
+
     int GetResetGeneration() const;
 
     // Thread-safe copy of the grids for a single paint/tracking pass.
     RadarGridSnapshot Snapshot() const;
 
 private:
+    // Clears all grids and bumps the reset generation; caller must hold m_Mutex.
+    void ResetGridsLocked();
+
     mutable std::mutex   m_Mutex;
     std::vector<uint8_t> m_IntensityGrid;
     std::vector<uint8_t> m_PersistenceGrid;
     std::vector<uint8_t> m_FreshGrid;
     std::atomic<double>  m_ZoomMeters;
+    std::atomic<double>  m_AngleOffsetDegrees;
+    std::atomic<bool>    m_PersistenceEnabled;
     std::atomic<int>     m_ResetGeneration;
 };
