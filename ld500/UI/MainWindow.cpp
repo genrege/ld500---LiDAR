@@ -13,11 +13,13 @@ std::atomic<bool> g_ShadowCastEnabled(false);
 
 namespace {
     bool s_ZoomSliderDragging = false;
+    bool s_IntensitySliderDragging = false;
 
     LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         switch (msg) {
         case WM_CREATE: {
             RadarRenderer::LayoutZoomSlider(hwnd);
+            RadarRenderer::LayoutIntensitySlider(hwnd);
             return 0;
         }
         case WM_COMMAND: {
@@ -74,6 +76,7 @@ namespace {
         }
         case WM_SIZE:
             RadarRenderer::LayoutZoomSlider(hwnd);
+            RadarRenderer::LayoutIntensitySlider(hwnd);
             InvalidateRect(hwnd, NULL, FALSE);
             return 0;
         case WM_LBUTTONDOWN: {
@@ -85,6 +88,12 @@ namespace {
                 g_GridModel.SetZoomMeters(RadarRenderer::ZoomFromSliderY(y));
                 InvalidateRect(hwnd, NULL, FALSE);
             }
+            else if (RadarRenderer::HitTestIntensitySlider(x, y)) {
+                s_IntensitySliderDragging = true;
+                SetCapture(hwnd);
+                RadarRenderer::SetBackgroundIntensity(RadarRenderer::IntensityFromSliderX(x));
+                InvalidateRect(hwnd, NULL, FALSE);
+            }
             return 0;
         }
         case WM_MOUSEMOVE: {
@@ -93,12 +102,23 @@ namespace {
                 g_GridModel.SetZoomMeters(RadarRenderer::ZoomFromSliderY(y));
                 InvalidateRect(hwnd, NULL, FALSE);
             }
+            else if (s_IntensitySliderDragging) {
+                int x = GET_X_LPARAM(lParam);
+                RadarRenderer::SetBackgroundIntensity(RadarRenderer::IntensityFromSliderX(x));
+                InvalidateRect(hwnd, NULL, FALSE);
+            }
             return 0;
         }
         case WM_LBUTTONUP: {
             if (s_ZoomSliderDragging) {
                 s_ZoomSliderDragging = false;
                 ReleaseCapture();
+                SaveZoomMeters(g_GridModel.GetZoomMeters());
+            }
+            else if (s_IntensitySliderDragging) {
+                s_IntensitySliderDragging = false;
+                ReleaseCapture();
+                SaveBackgroundIntensity(RadarRenderer::GetBackgroundIntensity());
             }
             return 0;
         }
@@ -113,6 +133,7 @@ namespace {
                 if (newZoom < ZOOM_MIN_METERS) newZoom = ZOOM_MIN_METERS;
                 if (newZoom > ZOOM_MAX_METERS) newZoom = ZOOM_MAX_METERS;
                 g_GridModel.SetZoomMeters(newZoom);
+                SaveZoomMeters(newZoom);
                 InvalidateRect(hwnd, NULL, FALSE);
             //}
             return 0;

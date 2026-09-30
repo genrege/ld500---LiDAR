@@ -2,6 +2,8 @@
 
 // Windows-specific persisted app settings (registry-backed).
 
+#include <string>
+
 // Loads the saved LIDAR orientation offset (degrees, [0, 360)), defaulting to 0 if unset/invalid.
 double LoadAngleOffsetDegrees();
 
@@ -46,3 +48,21 @@ void SaveMaxMatchDistCells(double cells);
 void SaveMaxMissedFrames(int frames);
 void SaveMinConfirmFrames(int frames);
 void SaveMaxStaticPersistenceForTracking(double persistence);
+
+// Loads the saved COM port name (e.g. "COM3"), defaulting to "COM3" if unset.
+std::wstring LoadComPortName();
+
+// Persists the selected COM port name to the registry immediately.
+void SaveComPortName(const std::wstring& portName);
+
+// Loads the saved zoom level (metres), defaulting to ZOOM_DEFAULT_METERS if unset/invalid.
+double LoadZoomMeters();
+
+// Persists the zoom level to the registry immediately.
+void SaveZoomMeters(double zoomMeters);
+
+// Loads the saved non-shadow background intensity multiplier, defaulting to 1.0 if unset/invalid.
+double LoadBackgroundIntensity();
+
+// Persists the background intensity multiplier to the registry immediately.
+void SaveBackgroundIntensity(double intensity);

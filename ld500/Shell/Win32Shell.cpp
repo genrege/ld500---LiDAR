@@ -17,14 +17,10 @@
 int RunWin32Shell(HINSTANCE hInstance, int nCmdShow) {
     {
         std::lock_guard<std::mutex> lock(g_ComSettingsMutex);
+        g_ComPortName = LoadComPortName();
         HANDLE hInitialPort = OpenAndConfigureSerialPort(g_ComPortName, g_BaudRate);
         g_hSerial.store(hInitialPort, std::memory_order_release);
-        if (hInitialPort == INVALID_HANDLE_VALUE) {
-            wchar_t warnMsg[256];
-            swprintf_s(warnMsg, L"Failed to connect to Radar on %s. Use Ports > Manage Ports... to select and reset a port once connected.", g_ComPortName.c_str());
-            MessageBox(NULL, warnMsg, L"Hardware Warning", MB_ICONWARNING);
-            // Continue running rather than exiting, so the user can fix the connection via the Manage Ports dialog.
-        }
+        // No popup on failure: the HUD and Manage Ports dialog both surface a bad/disconnected port.
     }
 
     g_GridModel.SetGridSizeCells(LoadGridSizeCells());
@@ -37,6 +33,8 @@ int RunWin32Shell(HINSTANCE hInstance, int nCmdShow) {
     RadarRenderer::Init();
     g_GridModel.SetAngleOffsetDegrees(LoadAngleOffsetDegrees());
     g_GridModel.SetPersistenceEnabled(LoadPersistenceEnabled());
+    g_GridModel.SetZoomMeters(LoadZoomMeters());
+    RadarRenderer::SetBackgroundIntensity(LoadBackgroundIntensity());
 
     std::thread serialThread(SerialReadThread, &g_GridModel);
     std::thread decayThread(DecayThread, &g_GridModel);
