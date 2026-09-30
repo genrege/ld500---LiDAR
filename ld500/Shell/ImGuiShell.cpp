@@ -52,6 +52,7 @@ namespace {
     std::unique_ptr<ISettingsStore> s_Settings;
 
     bool s_ZoomSliderDragging = false;
+    bool s_IntensitySliderDragging = false;
     bool s_ShowSettingsDialog = false;
     bool s_ShowPortsDialog = false;
     bool s_ShowAboutDialog = false;
@@ -322,8 +323,9 @@ namespace {
         if (s_ZoomSliderDragging && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
             s_GridModel.SetZoomMeters(RadarRendererImGui::ZoomFromSliderY(io.MousePos.y));
         }
-        if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+        if (ImGui::IsMouseReleased(ImGuiMouseButton_Left) && s_ZoomSliderDragging) {
             s_ZoomSliderDragging = false;
+            s_Settings->SetDouble("ZoomMeters", s_GridModel.GetZoomMeters());
         }
         if (io.MouseWheel != 0.0f) {
             constexpr double ZOOM_STEP_METERS = 0.25;
@@ -331,6 +333,25 @@ namespace {
             if (newZoom < ZOOM_MIN_METERS) newZoom = ZOOM_MIN_METERS;
             if (newZoom > ZOOM_MAX_METERS) newZoom = ZOOM_MAX_METERS;
             s_GridModel.SetZoomMeters(newZoom);
+            s_Settings->SetDouble("ZoomMeters", newZoom);
+        }
+    }
+
+    // Mirrors the background-intensity slider mouse handling added alongside the zoom slider.
+    void HandleIntensitySliderInput() {
+        ImGuiIO& io = ImGui::GetIO();
+        if (io.WantCaptureMouse) return;
+
+        if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
+            RadarRendererImGui::HitTestIntensitySlider(io.MousePos.x, io.MousePos.y)) {
+            s_IntensitySliderDragging = true;
+        }
+        if (s_IntensitySliderDragging && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+            RadarRendererImGui::SetBackgroundIntensity(RadarRendererImGui::IntensityFromSliderX(io.MousePos.x));
+        }
+        if (ImGui::IsMouseReleased(ImGuiMouseButton_Left) && s_IntensitySliderDragging) {
+            s_IntensitySliderDragging = false;
+            s_Settings->SetDouble("BackgroundIntensity", RadarRendererImGui::GetBackgroundIntensity());
         }
     }
 }
@@ -346,6 +367,8 @@ int RunImGuiShell() {
     MAX_STATIC_PERSISTENCE_FOR_TRACKING = s_Settings->GetDouble("MaxStaticPersistenceForTracking", 8.0);
     s_GridModel.SetAngleOffsetDegrees(s_Settings->GetDouble("AngleOffsetDegrees", 0.0));
     s_GridModel.SetPersistenceEnabled(s_Settings->GetBool("PersistenceEnabled", true));
+    s_GridModel.SetZoomMeters(s_Settings->GetDouble("ZoomMeters", ZOOM_DEFAULT_METERS));
+    RadarRendererImGui::SetBackgroundIntensity(s_Settings->GetDouble("BackgroundIntensity", 1.0));
     s_TrackingEnabled.store(s_Settings->GetBool("TrackingEnabled", false), std::memory_order_relaxed);
     s_ShadowCastEnabled.store(s_Settings->GetBool("ShadowCastEnabled", false), std::memory_order_relaxed);
 
@@ -408,7 +431,9 @@ int RunImGuiShell() {
         ImGui::NewFrame();
 
         RadarRendererImGui::LayoutZoomSlider();
+        RadarRendererImGui::LayoutIntensitySlider();
         HandleZoomSliderInput();
+        HandleIntensitySliderInput();
 
         std::string hudPortName;
         uint32_t hudBaudRate;

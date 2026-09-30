@@ -27,6 +27,12 @@ namespace {
     ImVec2 s_ZoomSliderBottom = { 0, 0 };
     float s_ZoomSliderX = 0; // track's single X coordinate (it's a thin vertical line)
 
+    // Same style, but horizontal: controls the brightness multiplier applied to non-shadow
+    // empty-cell background color.
+    ImVec2 s_IntensitySliderLeft = { 0, 0 };
+    ImVec2 s_IntensitySliderRight = { 0, 0 };
+    double s_BackgroundIntensity = 1.0;
+
     constexpr int SHADOW_ANGLE_BUCKETS = 180; // 2-degree buckets
 
     // Precomputed angle bucket for every grid cell relative to the grid center, rebuilt whenever
@@ -97,6 +103,17 @@ namespace {
         return top + static_cast<float>(t * (bottom - top));
     }
 
+    // Returns the thumb's center X pixel coordinate for the current background intensity value.
+    float SliderXFromIntensity(double intensity) {
+        float left = s_IntensitySliderLeft.x;
+        float right = s_IntensitySliderRight.x;
+        double t = (RadarRendererImGui::BACKGROUND_INTENSITY_MAX > RadarRendererImGui::BACKGROUND_INTENSITY_MIN)
+            ? (intensity - RadarRendererImGui::BACKGROUND_INTENSITY_MIN)
+                / (RadarRendererImGui::BACKGROUND_INTENSITY_MAX - RadarRendererImGui::BACKGROUND_INTENSITY_MIN)
+            : 0.0;
+        return left + static_cast<float>(t * (right - left));
+    }
+
     // Approximates GDI's PS_DOT crosshair pen with short dashes, since ImDrawList has no
     // built-in dashed-line style.
     void AddDottedLine(ImDrawList* dl, ImVec2 p1, ImVec2 p2, ImU32 col) {
@@ -163,6 +180,42 @@ namespace RadarRendererImGui {
                y >= s_ZoomSliderTop.y - 10 && y <= s_ZoomSliderBottom.y + 10;
     }
 
+    void LayoutIntensitySlider() {
+        ImVec2 displaySize = ImGui::GetIO().DisplaySize;
+        const float sliderLength = 80;
+        const float rightMargin = 50; // Matches the zoom slider's tick-label margin
+        const float topMargin = 20;
+
+        float right = displaySize.x - rightMargin;
+        float left = right - sliderLength;
+        s_IntensitySliderLeft = ImVec2(left, topMargin);
+        s_IntensitySliderRight = ImVec2(right, topMargin);
+    }
+
+    double IntensityFromSliderX(float x) {
+        float left = s_IntensitySliderLeft.x;
+        float right = s_IntensitySliderRight.x;
+        if (x < left) x = left;
+        if (x > right) x = right;
+        double t = (right > left) ? static_cast<double>(x - left) / (right - left) : 0.0;
+        return BACKGROUND_INTENSITY_MIN + t * (BACKGROUND_INTENSITY_MAX - BACKGROUND_INTENSITY_MIN);
+    }
+
+    bool HitTestIntensitySlider(float x, float y) {
+        return x >= s_IntensitySliderLeft.x - 10 && x <= s_IntensitySliderRight.x + 10 &&
+               y >= s_IntensitySliderLeft.y - 10 && y <= s_IntensitySliderLeft.y + 10;
+    }
+
+    double GetBackgroundIntensity() {
+        return s_BackgroundIntensity;
+    }
+
+    void SetBackgroundIntensity(double intensity) {
+        if (intensity < BACKGROUND_INTENSITY_MIN) intensity = BACKGROUND_INTENSITY_MIN;
+        if (intensity > BACKGROUND_INTENSITY_MAX) intensity = BACKGROUND_INTENSITY_MAX;
+        s_BackgroundIntensity = intensity;
+    }
+
     void PaintRadar(RadarGridModel& model, ObjectTracker& tracker,
                      bool trackingEnabled, bool shadowCastEnabled,
                      const char* portName, uint32_t baudRate, bool isConnected) {
@@ -193,6 +246,11 @@ namespace RadarRendererImGui {
         const int stride = GRID_SIZE * 3;
         const int gridCenter = GRID_SIZE / 2;
         const int gridMaxRadiusSq = gridCenter * gridCenter;
+        // Brightness multiplier for non-shadow empty-cell background, adjustable via the top-right slider.
+        double bgIntensity = s_BackgroundIntensity;
+        uint8_t bgR = static_cast<uint8_t>(std::min(255.0, 10.0 * bgIntensity));
+        uint8_t bgG = static_cast<uint8_t>(std::min(255.0, 16.0 * bgIntensity));
+        uint8_t bgB = static_cast<uint8_t>(std::min(255.0, 10.0 * bgIntensity));
         for (int y = 0; y < GRID_SIZE; ++y) {
             uint8_t* row = s_GridPixels.data() + static_cast<size_t>(y) * stride;
             int dy = y - gridCenter;
@@ -207,10 +265,10 @@ namespace RadarRendererImGui {
                     } else if (shadowCastEnabled && shadowMask[cellIndex]) {
                         r = 0; g = 6; b = 0;
                     } else {
-                        r = 10; g = 16; b = 10;
+                        r = bgR; g = bgG; b = bgB; // Background color, scaled by the intensity slider
                     }
                 } else if (snapshot.fresh[cellIndex] > 0) {
-                    r = 10; g = 16; b = 10;
+                    r = bgR; g = bgG; b = bgB; // Background color here; drawn as a green circle below
                     freshMask[cellIndex] = 1;
 
                     bool hasEarlierNeighbourInCluster = false;
@@ -312,7 +370,7 @@ namespace RadarRendererImGui {
         int ringStep = maxRadius / 4;
         if (ringStep < 1) ringStep = 1;
         for (int r = ringStep; r <= maxRadius; r += ringStep) {
-            dl->AddCircle(ImVec2(static_cast<float>(centerX), static_cast<float>(centerY)), static_cast<float>(r), IM_COL32(0, 80, 0, 255));
+            dl->AddCircle(ImVec2(static_cast<float>(centerX), static_cast<float>(centerY)), static_cast<float>(r), IM_COL32(80, 80, 80, 255));
 
             double ringDistanceM = (static_cast<double>(r) / maxRadius) * currentZoomMeters;
             char ringLabel[16];
@@ -326,17 +384,22 @@ namespace RadarRendererImGui {
         AddDottedLine(dl, ImVec2(static_cast<float>(centerX), static_cast<float>(centerY - maxRadius)),
             ImVec2(static_cast<float>(centerX), static_cast<float>(centerY + maxRadius)), IM_COL32(0, 60, 0, 255));
 
+        // Centre spot.
+        dl->AddCircleFilled(ImVec2(static_cast<float>(centerX), static_cast<float>(centerY)), 4.0f, IM_COL32(255, 255, 255, 255));
+
         // HUD status line (behind the existing IHudSurface abstraction). Built as a wchar_t
         // buffer via a plain ASCII widen (every field here is guaranteed ASCII) rather than a
         // wide-printf %s, since wide/narrow %s argument-type conventions aren't portable.
         char hudTextUtf8[160];
         std::snprintf(hudTextUtf8, sizeof(hudTextUtf8), "LD500 SCOPE %s | %s @ %u BAUD | MAX: %.1fm | DATA POINTS: %d",
-            isConnected ? "ACTIVE" : "DISCONNECTED", portName, baudRate, currentZoomMeters, visiblePointCount);
+            isConnected ? "ACTIVE" : "BAD PORT", portName, baudRate, currentZoomMeters, visiblePointCount);
         wchar_t hudText[160];
         size_t hudTextLen = std::strlen(hudTextUtf8);
         for (size_t i = 0; i < hudTextLen; ++i) hudText[i] = static_cast<wchar_t>(static_cast<unsigned char>(hudTextUtf8[i]));
         hudText[hudTextLen] = L'\0';
 
+        // Bad/disconnected port is called out in red instead of the usual green.
+        ImGuiHudSurface::SetTextColor(isConnected ? IM_COL32(0, 255, 0, 255) : IM_COL32(255, 0, 0, 255));
         ImGuiHudSurface hudSurface;
         // Offset below the main menu bar, which is drawn on top of this background draw list.
         hudSurface.DrawHudText(15, 15 + static_cast<int>(ImGui::GetFrameHeight()), hudText);
@@ -359,5 +422,24 @@ namespace RadarRendererImGui {
         char valueLabel[16];
         std::snprintf(valueLabel, sizeof(valueLabel), "%.1fm", currentZoomMeters);
         dl->AddText(ImVec2(s_ZoomSliderX + 9, s_ZoomSliderBottom.y + 6), IM_COL32(0, 255, 0, 255), valueLabel);
+
+        // Background intensity slider: same style, horizontal, top-right.
+        dl->AddLine(s_IntensitySliderLeft, s_IntensitySliderRight, IM_COL32(0, 255, 0, 255));
+        {
+            constexpr int tickSteps = 4;
+            for (int i = 0; i <= tickSteps; ++i) {
+                double tickValue = BACKGROUND_INTENSITY_MIN
+                    + (BACKGROUND_INTENSITY_MAX - BACKGROUND_INTENSITY_MIN) * i / tickSteps;
+                float x = SliderXFromIntensity(tickValue);
+                dl->AddLine(ImVec2(x, s_IntensitySliderLeft.y), ImVec2(x, s_IntensitySliderLeft.y + 5), IM_COL32(255, 255, 255, 255));
+            }
+
+            float thumbX = SliderXFromIntensity(s_BackgroundIntensity);
+            dl->AddRectFilled(ImVec2(thumbX - 5, s_IntensitySliderLeft.y - 4), ImVec2(thumbX + 5, s_IntensitySliderLeft.y + 4), IM_COL32(0, 255, 0, 255));
+
+            char intensityLabel[24];
+            std::snprintf(intensityLabel, sizeof(intensityLabel), "BG %.1fx", s_BackgroundIntensity);
+            dl->AddText(ImVec2(s_IntensitySliderLeft.x, s_IntensitySliderLeft.y + 9), IM_COL32(0, 255, 0, 255), intensityLabel);
+        }
     }
 }

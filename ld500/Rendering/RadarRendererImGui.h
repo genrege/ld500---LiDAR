@@ -9,6 +9,9 @@
 #include "ObjectTracking.h"
 
 namespace RadarRendererImGui {
+    constexpr double BACKGROUND_INTENSITY_MIN = 0.0;   // Nearest intensity selectable on the slider
+    constexpr double BACKGROUND_INTENSITY_MAX = 2.0;   // Farthest intensity selectable on the slider
+
     // Creates the grid texture. Call once before the first frame.
     void Init();
     // Releases the grid texture. Call once during application shutdown.
@@ -24,6 +27,16 @@ namespace RadarRendererImGui {
     double ZoomFromSliderY(float y);
     // True if (x, y) falls within the slider's track rectangle, expanded by a small grab margin.
     bool HitTestZoomSlider(float x, float y);
+
+    // Repositions the background intensity slider's track rectangle for the current display size.
+    void LayoutIntensitySlider();
+    // Converts an X pixel coordinate within the slider track into an intensity multiplier (left = min, right = max).
+    double IntensityFromSliderX(float x);
+    // True if (x, y) falls within the intensity slider's track rectangle, expanded by a small grab margin.
+    bool HitTestIntensitySlider(float x, float y);
+    // Gets/sets the brightness multiplier applied to non-shadow empty-cell background color.
+    double GetBackgroundIntensity();
+    void SetBackgroundIntensity(double intensity);
 
     // Renders one full frame onto ImGui's background draw list (grid, fresh/track markers,
     // rings, HUD, zoom slider). portName/baudRate/isConnected describe the active ISerialPort

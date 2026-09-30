@@ -45,8 +45,14 @@ namespace {
     }
 }
 
+unsigned int ImGuiHudSurface::s_TextColor = IM_COL32(0, 255, 0, 255);
+
+void ImGuiHudSurface::SetTextColor(unsigned int color) {
+    s_TextColor = color;
+}
+
 void ImGuiHudSurface::DrawHudText(int x, int y, const wchar_t* text) {
     std::string utf8 = ToUtf8(text);
     ImGui::GetBackgroundDrawList()->AddText(ImVec2(static_cast<float>(x), static_cast<float>(y)),
-        IM_COL32(0, 255, 0, 255), utf8.c_str());
+        s_TextColor, utf8.c_str());
 }
