@@ -1,84 +1,37 @@
+#include "Shell/ImGuiShell.h"
+
+#if defined(_WIN32)
 #include <windows.h>
-#include <commctrl.h>
-#include <mutex>
+#include <string>
+#include "Platform/ISettingsStore.h"
+#include "Shell/Win32Shell.h"
 
-#include "Resource.h"
-#include "SerialPort.h"
-#include "AppWorkers.h"
-#include "AppSettings.h"
-#include "RadarRenderer.h"
-#include "MainWindow.h"
+namespace {
+    // Reads the persisted UiBackend setting (shared with the ImGui shell's own settings store,
+    // both backed by the same HKCU\Software\LD500 registry hive), overridable by a "--ui=win32"
+    // or "--ui=imgui" command-line flag so either shell can be forced without touching settings.
+    bool WantsImGuiShell(LPSTR lpCmdLine) {
+        std::string cmdLine(lpCmdLine ? lpCmdLine : "");
+        if (cmdLine.find("--ui=imgui") != std::string::npos) return true;
+        if (cmdLine.find("--ui=win32") != std::string::npos) return false;
 
-#pragma comment(lib, "comctl32.lib")
+        auto settings = CreatePlatformSettingsStore();
+        return settings->GetString("UiBackend", "win32") == "imgui";
+    }
+}
 
 // Entry Point Application Architecture
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
-    {
-        std::lock_guard<std::mutex> lock(g_ComSettingsMutex);
-        g_ComPortName = LoadComPortName();
-        HANDLE hInitialPort = OpenAndConfigureSerialPort(g_ComPortName, g_BaudRate);
-        g_hSerial.store(hInitialPort, std::memory_order_release);
-        // No popup on failure: the HUD and Manage Ports dialog both surface a bad/disconnected port.
+    if (WantsImGuiShell(lpCmdLine)) {
+        return RunImGuiShell();
     }
-
-    g_GridModel.SetGridSizeCells(LoadGridSizeCells());
-    MIN_CLUSTER_CELLS = LoadMinClusterCells();
-    MAX_MATCH_DIST_CELLS = LoadMaxMatchDistCells();
-    MAX_MISSED_FRAMES = LoadMaxMissedFrames();
-    MIN_CONFIRM_FRAMES = LoadMinConfirmFrames();
-    MAX_STATIC_PERSISTENCE_FOR_TRACKING = LoadMaxStaticPersistenceForTracking();
-
-    RadarRenderer::Init();
-    g_GridModel.SetAngleOffsetDegrees(LoadAngleOffsetDegrees());
-    g_GridModel.SetPersistenceEnabled(LoadPersistenceEnabled());
-    g_GridModel.SetZoomMeters(LoadZoomMeters());
-    RadarRenderer::SetBackgroundIntensity(LoadBackgroundIntensity());
-
-    HANDLE hThread = CreateThread(NULL, 0, SerialReadThread, &g_GridModel, 0, NULL);
-    HANDLE hDecayThread = CreateThread(NULL, 0, DecayThread, &g_GridModel, 0, NULL);
-    HANDLE hFreshDecayThread = CreateThread(NULL, 0, FreshMarkerDecayThread, &g_GridModel, 0, NULL);
-
-    RegisterMainWindowClass(hInstance);
-    HWND hwnd = CreateMainWindow(hInstance, nCmdShow);
-    if (hwnd == NULL) return 0;
-
-    // Restore the persisted Tracking/Shadow toggles and reflect them in the menu checkmarks.
-    g_TrackingEnabled.store(LoadTrackingEnabled(), std::memory_order_relaxed);
-    g_ShadowCastEnabled.store(LoadShadowCastEnabled(), std::memory_order_relaxed);
-    HMENU hMenu = GetMenu(hwnd);
-    if (hMenu) {
-        CheckMenuItem(hMenu, IDM_TOGGLE_TRACKING,
-            MF_BYCOMMAND | (g_TrackingEnabled.load(std::memory_order_relaxed) ? MF_CHECKED : MF_UNCHECKED));
-        CheckMenuItem(hMenu, IDM_TOGGLE_SHADOW,
-            MF_BYCOMMAND | (g_ShadowCastEnabled.load(std::memory_order_relaxed) ? MF_CHECKED : MF_UNCHECKED));
-        CheckMenuItem(hMenu, IDM_TOGGLE_PERSISTENCE,
-            MF_BYCOMMAND | (g_GridModel.GetPersistenceEnabled() ? MF_CHECKED : MF_UNCHECKED));
-    }
-
-    // Dynamic UI refresh pump using a basic WM_PAINT trigger loop
-    MSG msg = { 0 };
-    while (msg.message != WM_QUIT) {
-        if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
-            TranslateMessage(&msg);
-            DispatchMessage(&msg);
-        }
-        else {
-            InvalidateRect(hwnd, NULL, FALSE); // Triggers constant visual repaint
-            Sleep(16); // Target ~60 FPS
-        }
-    }
-
-    // Cleanup resources
-    g_KeepRunning = false;
-    WaitForSingleObject(hThread, 1000);
-    CloseHandle(hThread);
-    WaitForSingleObject(hDecayThread, 1000);
-    CloseHandle(hDecayThread);
-    WaitForSingleObject(hFreshDecayThread, 1000);
-    CloseHandle(hFreshDecayThread);
-    HANDLE hFinalPort = g_hSerial.exchange(INVALID_HANDLE_VALUE, std::memory_order_acq_rel);
-    if (hFinalPort != INVALID_HANDLE_VALUE) CloseHandle(hFinalPort);
-    RadarRenderer::Shutdown();
-
-    return 0;
+    return RunWin32Shell(hInstance, nCmdShow);
 }
+
+#else // macOS/Linux: only the ImGui shell exists.
+
+int main(int /*argc*/, char** /*argv*/) {
+    return RunImGuiShell();
+}
+
+#endif

@@ -33,6 +33,12 @@ bld/
 [Ll]og/
 [Ll]ogs/
 
+# CMake build output (macOS target)
+/build/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+
 # Visual Studio 2015/2017 cache/options directory
 .vs/
 # Uncomment if you have tasks that create the project's static files in wwwroot
@@ -361,3 +367,5 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+# Dear ImGui runtime layout state
+imgui.ini

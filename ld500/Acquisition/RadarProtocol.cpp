@@ -61,6 +61,7 @@ bool ParseRadarStream(const std::vector<uint8_t>& rawBuffer, std::vector<RadarRe
                 RadarReading rd;
                 rd.angleDegrees = startAngle + (angleStep * p);
                 if (rd.angleDegrees >= 360.0) rd.angleDegrees -= 360.0;
+                rd.speedDegPerSec = packet.speed;
 
                 uint16_t dist = packet.points[p].distance;
 

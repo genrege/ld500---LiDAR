@@ -13,6 +13,7 @@ struct RadarReading {
     double   angleDegrees;
     uint16_t distanceMm;
     bool     isOutOfRange;
+    uint16_t speedDegPerSec; // Motor speed this packet was captured at, straight from LdPacketLayout
 };
 
 // Internal hardware representations for exact block parsing alignment
