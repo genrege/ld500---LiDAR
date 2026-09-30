@@ -25,6 +25,21 @@
     <Filter Include="UI">
       <UniqueIdentifier>{6A6F1F9E-3A9E-4A1E-9F1E-8E3A6C1B0A04}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Platform">
+      <UniqueIdentifier>{6A6F1F9E-3A9E-4A1E-9F1E-8E3A6C1B0A05}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shell">
+      <UniqueIdentifier>{6A6F1F9E-3A9E-4A1E-9F1E-8E3A6C1B0A06}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="third_party">
+      <UniqueIdentifier>{6A6F1F9E-3A9E-4A1E-9F1E-8E3A6C1B0A07}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="third_party\imgui">
+      <UniqueIdentifier>{6A6F1F9E-3A9E-4A1E-9F1E-8E3A6C1B0A08}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="third_party\glfw">
+      <UniqueIdentifier>{6A6F1F9E-3A9E-4A1E-9F1E-8E3A6C1B0A09}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="framework.h">
@@ -75,6 +90,36 @@
     <ClInclude Include="UI\MainWindow.h">
       <Filter>UI</Filter>
     </ClInclude>
+    <ClInclude Include="Rendering\RadarRendererImGui.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="Rendering\ImGuiHudSurface.h">
+      <Filter>Rendering</Filter>
+    </ClInclude>
+    <ClInclude Include="Platform\ISerialPort.h">
+      <Filter>Platform</Filter>
+    </ClInclude>
+    <ClInclude Include="Platform\Win32SerialPort.h">
+      <Filter>Platform</Filter>
+    </ClInclude>
+    <ClInclude Include="Platform\PosixSerialPort.h">
+      <Filter>Platform</Filter>
+    </ClInclude>
+    <ClInclude Include="Platform\ISettingsStore.h">
+      <Filter>Platform</Filter>
+    </ClInclude>
+    <ClInclude Include="Platform\RegistrySettingsStore.h">
+      <Filter>Platform</Filter>
+    </ClInclude>
+    <ClInclude Include="Platform\FileSettingsStore.h">
+      <Filter>Platform</Filter>
+    </ClInclude>
+    <ClInclude Include="Shell\Win32Shell.h">
+      <Filter>Shell</Filter>
+    </ClInclude>
+    <ClInclude Include="Shell\ImGuiShell.h">
+      <Filter>Shell</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ld500.cpp">
@@ -109,6 +154,114 @@
     </ClCompile>
     <ClCompile Include="UI\MainWindow.cpp">
       <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\RadarRendererImGui.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="Rendering\ImGuiHudSurface.cpp">
+      <Filter>Rendering</Filter>
+    </ClCompile>
+    <ClCompile Include="Platform\Win32SerialPort.cpp">
+      <Filter>Platform</Filter>
+    </ClCompile>
+    <ClCompile Include="Platform\PosixSerialPort.cpp">
+      <Filter>Platform</Filter>
+    </ClCompile>
+    <ClCompile Include="Platform\RegistrySettingsStore.cpp">
+      <Filter>Platform</Filter>
+    </ClCompile>
+    <ClCompile Include="Platform\FileSettingsStore.cpp">
+      <Filter>Platform</Filter>
+    </ClCompile>
+    <ClCompile Include="Shell\Win32Shell.cpp">
+      <Filter>Shell</Filter>
+    </ClCompile>
+    <ClCompile Include="Shell\ImGuiShell.cpp">
+      <Filter>Shell</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\imgui\imgui.cpp">
+      <Filter>third_party\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\imgui\imgui_draw.cpp">
+      <Filter>third_party\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\imgui\imgui_widgets.cpp">
+      <Filter>third_party\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\imgui\imgui_tables.cpp">
+      <Filter>third_party\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\imgui\imgui_demo.cpp">
+      <Filter>third_party\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\imgui\backends\imgui_impl_glfw.cpp">
+      <Filter>third_party\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\imgui\backends\imgui_impl_opengl3.cpp">
+      <Filter>third_party\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\glfw\src\context.c">
+      <Filter>third_party\glfw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\glfw\src\init.c">
+      <Filter>third_party\glfw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\glfw\src\input.c">
+      <Filter>third_party\glfw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\glfw\src\monitor.c">
+      <Filter>third_party\glfw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\glfw\src\platform.c">
+      <Filter>third_party\glfw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\glfw\src\vulkan.c">
+      <Filter>third_party\glfw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\glfw\src\window.c">
+      <Filter>third_party\glfw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\glfw\src\egl_context.c">
+      <Filter>third_party\glfw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\glfw\src\osmesa_context.c">
+      <Filter>third_party\glfw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\glfw\src\null_init.c">
+      <Filter>third_party\glfw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\glfw\src\null_monitor.c">
+      <Filter>third_party\glfw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\glfw\src\null_window.c">
+      <Filter>third_party\glfw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\glfw\src\null_joystick.c">
+      <Filter>third_party\glfw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\glfw\src\win32_init.c">
+      <Filter>third_party\glfw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\glfw\src\win32_joystick.c">
+      <Filter>third_party\glfw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\glfw\src\win32_monitor.c">
+      <Filter>third_party\glfw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\glfw\src\win32_window.c">
+      <Filter>third_party\glfw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\glfw\src\win32_module.c">
+      <Filter>third_party\glfw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\glfw\src\win32_time.c">
+      <Filter>third_party\glfw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\glfw\src\win32_thread.c">
+      <Filter>third_party\glfw</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\glfw\src\wgl_context.c">
+      <Filter>third_party\glfw</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

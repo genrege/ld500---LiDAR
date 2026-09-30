@@ -86,13 +86,15 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_GLFW_WIN32;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>.;Acquisition;Model;Rendering;UI;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalIncludeDirectories>.;Acquisition;Model;Rendering;UI;Platform;Shell;..\third_party;..\third_party\imgui;..\third_party\imgui\backends;..\third_party\glfw\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -101,28 +103,32 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_GLFW_WIN32;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>.;Acquisition;Model;Rendering;UI;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalIncludeDirectories>.;Acquisition;Model;Rendering;UI;Platform;Shell;..\third_party;..\third_party\imgui;..\third_party\imgui\backends;..\third_party\glfw\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_WINDOWS;_GLFW_WIN32;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>.;Acquisition;Model;Rendering;UI;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalIncludeDirectories>.;Acquisition;Model;Rendering;UI;Platform;Shell;..\third_party;..\third_party\imgui;..\third_party\imgui\backends;..\third_party\glfw\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -131,15 +137,17 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_WINDOWS;_GLFW_WIN32;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>.;Acquisition;Model;Rendering;UI;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalIncludeDirectories>.;Acquisition;Model;Rendering;UI;Platform;Shell;..\third_party;..\third_party\imgui;..\third_party\imgui\backends;..\third_party\glfw\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -157,8 +165,18 @@
     <ClInclude Include="Rendering\RadarRenderer.h" />
     <ClInclude Include="Rendering\IHudSurface.h" />
     <ClInclude Include="Rendering\GdiHudSurface.h" />
+    <ClInclude Include="Rendering\RadarRendererImGui.h" />
+    <ClInclude Include="Rendering\ImGuiHudSurface.h" />
     <ClInclude Include="UI\Dialogs.h" />
     <ClInclude Include="UI\MainWindow.h" />
+    <ClInclude Include="Platform\ISerialPort.h" />
+    <ClInclude Include="Platform\Win32SerialPort.h" />
+    <ClInclude Include="Platform\PosixSerialPort.h" />
+    <ClInclude Include="Platform\ISettingsStore.h" />
+    <ClInclude Include="Platform\RegistrySettingsStore.h" />
+    <ClInclude Include="Platform\FileSettingsStore.h" />
+    <ClInclude Include="Shell\Win32Shell.h" />
+    <ClInclude Include="Shell\ImGuiShell.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ld500.cpp" />
@@ -170,8 +188,50 @@
     <ClCompile Include="Model\ObjectTracking.cpp" />
     <ClCompile Include="Rendering\RadarRenderer.cpp" />
     <ClCompile Include="Rendering\GdiHudSurface.cpp" />
+    <ClCompile Include="Rendering\RadarRendererImGui.cpp" />
+    <ClCompile Include="Rendering\ImGuiHudSurface.cpp" />
     <ClCompile Include="UI\Dialogs.cpp" />
     <ClCompile Include="UI\MainWindow.cpp" />
+    <ClCompile Include="Platform\Win32SerialPort.cpp" />
+    <ClCompile Include="Platform\PosixSerialPort.cpp">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="Platform\RegistrySettingsStore.cpp" />
+    <ClCompile Include="Platform\FileSettingsStore.cpp">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="Shell\Win32Shell.cpp" />
+    <ClCompile Include="Shell\ImGuiShell.cpp" />
+    <!-- Vendored Dear ImGui core + GLFW/OpenGL3 backends (see third_party/README.md) -->
+    <ClCompile Include="..\third_party\imgui\imgui.cpp" />
+    <ClCompile Include="..\third_party\imgui\imgui_draw.cpp" />
+    <ClCompile Include="..\third_party\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="..\third_party\imgui\imgui_tables.cpp" />
+    <ClCompile Include="..\third_party\imgui\imgui_demo.cpp" />
+    <ClCompile Include="..\third_party\imgui\backends\imgui_impl_glfw.cpp" />
+    <ClCompile Include="..\third_party\imgui\backends\imgui_impl_opengl3.cpp" />
+    <!-- Vendored GLFW (Win32 backend source list, matching third_party/glfw/src/CMakeLists.txt's GLFW_BUILD_WIN32 file set) -->
+    <ClCompile Include="..\third_party\glfw\src\context.c" />
+    <ClCompile Include="..\third_party\glfw\src\init.c" />
+    <ClCompile Include="..\third_party\glfw\src\input.c" />
+    <ClCompile Include="..\third_party\glfw\src\monitor.c" />
+    <ClCompile Include="..\third_party\glfw\src\platform.c" />
+    <ClCompile Include="..\third_party\glfw\src\vulkan.c" />
+    <ClCompile Include="..\third_party\glfw\src\window.c" />
+    <ClCompile Include="..\third_party\glfw\src\egl_context.c" />
+    <ClCompile Include="..\third_party\glfw\src\osmesa_context.c" />
+    <ClCompile Include="..\third_party\glfw\src\null_init.c" />
+    <ClCompile Include="..\third_party\glfw\src\null_monitor.c" />
+    <ClCompile Include="..\third_party\glfw\src\null_window.c" />
+    <ClCompile Include="..\third_party\glfw\src\null_joystick.c" />
+    <ClCompile Include="..\third_party\glfw\src\win32_init.c" />
+    <ClCompile Include="..\third_party\glfw\src\win32_joystick.c" />
+    <ClCompile Include="..\third_party\glfw\src\win32_monitor.c" />
+    <ClCompile Include="..\third_party\glfw\src\win32_window.c" />
+    <ClCompile Include="..\third_party\glfw\src\win32_module.c" />
+    <ClCompile Include="..\third_party\glfw\src\win32_time.c" />
+    <ClCompile Include="..\third_party\glfw\src\win32_thread.c" />
+    <ClCompile Include="..\third_party\glfw\src\wgl_context.c" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="ld500.rc" />
