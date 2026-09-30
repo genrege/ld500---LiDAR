@@ -21,23 +21,26 @@ namespace {
 
     constexpr int SHADOW_ANGLE_BUCKETS = 180; // 2-degree buckets
 
-    // Precomputed angle bucket for every grid cell relative to the grid center, built once on first
-    // use so ComputeShadowMask() below never needs a per-frame atan2() call.
+    // Precomputed angle bucket for every grid cell relative to the grid center, rebuilt whenever
+    // GRID_SIZE changes (live grid-size updates) so ComputeShadowMask() below never needs a
+    // per-frame atan2() call.
     const std::vector<uint16_t>& ShadowAngleBucketTable() {
-        static const std::vector<uint16_t> table = [] {
-            std::vector<uint16_t> t(static_cast<size_t>(GRID_SIZE) * GRID_SIZE, 0);
-            constexpr int center = GRID_SIZE / 2;
-            for (int y = 0; y < GRID_SIZE; ++y) {
-                for (int x = 0; x < GRID_SIZE; ++x) {
-                    double angle = std::atan2(static_cast<double>(y - center), static_cast<double>(x - center));
-                    if (angle < 0.0) angle += 2.0 * PI;
-                    int bucket = static_cast<int>(angle / (2.0 * PI) * SHADOW_ANGLE_BUCKETS);
-                    if (bucket >= SHADOW_ANGLE_BUCKETS) bucket = SHADOW_ANGLE_BUCKETS - 1;
-                    t[static_cast<size_t>(y) * GRID_SIZE + x] = static_cast<uint16_t>(bucket);
-                }
+        static std::vector<uint16_t> table;
+        static int tableGridSize = -1;
+        if (tableGridSize == GRID_SIZE) return table;
+
+        table.assign(static_cast<size_t>(GRID_SIZE) * GRID_SIZE, 0);
+        const int center = GRID_SIZE / 2;
+        for (int y = 0; y < GRID_SIZE; ++y) {
+            for (int x = 0; x < GRID_SIZE; ++x) {
+                double angle = std::atan2(static_cast<double>(y - center), static_cast<double>(x - center));
+                if (angle < 0.0) angle += 2.0 * PI;
+                int bucket = static_cast<int>(angle / (2.0 * PI) * SHADOW_ANGLE_BUCKETS);
+                if (bucket >= SHADOW_ANGLE_BUCKETS) bucket = SHADOW_ANGLE_BUCKETS - 1;
+                table[static_cast<size_t>(y) * GRID_SIZE + x] = static_cast<uint16_t>(bucket);
             }
-            return t;
-            }();
+        }
+        tableGridSize = GRID_SIZE;
         return table;
     }
 
@@ -48,8 +51,8 @@ namespace {
     // (moire/patchiness) at larger radii. Explicitly clipped to the grid's inscribed circle so
     // shadows never bleed into the square grid's corners, outside the circular HUD.
     std::vector<uint8_t> ComputeShadowMask(const std::vector<uint8_t>& intensityGrid) {
-        constexpr int center = GRID_SIZE / 2;
-        constexpr int maxRadiusSq = center * center;
+        const int center = GRID_SIZE / 2;
+        const int maxRadiusSq = center * center;
         const std::vector<uint16_t>& angleBucket = ShadowAngleBucketTable();
 
         std::vector<int> nearestHitRadiusSq(SHADOW_ANGLE_BUCKETS, INT_MAX);
@@ -148,7 +151,20 @@ namespace RadarRenderer {
             DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
             CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Arial");
 
-        // Create the off-screen DIB section used to write grid pixel colors directly before blitting
+        s_hGridDC = CreateCompatibleDC(NULL);
+        ResizeGridSurface();
+    }
+
+    void Shutdown() {
+        if (s_hUiFont) { DeleteObject(s_hUiFont); s_hUiFont = NULL; }
+        if (s_hGridBitmap) { DeleteObject(s_hGridBitmap); s_hGridBitmap = NULL; }
+        if (s_hGridDC) { DeleteDC(s_hGridDC); s_hGridDC = NULL; }
+    }
+
+    // (Re)creates the off-screen DIB section at the current GRID_SIZE, dropping any previous one.
+    void ResizeGridSurface() {
+        if (s_hGridBitmap) { DeleteObject(s_hGridBitmap); s_hGridBitmap = NULL; s_pGridBits = nullptr; }
+
         BITMAPINFO bmi = { 0 };
         bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
         bmi.bmiHeader.biWidth = GRID_SIZE;
@@ -157,15 +173,8 @@ namespace RadarRenderer {
         bmi.bmiHeader.biBitCount = 24;
         bmi.bmiHeader.biCompression = BI_RGB;
 
-        s_hGridDC = CreateCompatibleDC(NULL);
         s_hGridBitmap = CreateDIBSection(s_hGridDC, &bmi, DIB_RGB_COLORS, reinterpret_cast<void**>(&s_pGridBits), NULL, 0);
         SelectObject(s_hGridDC, s_hGridBitmap);
-    }
-
-    void Shutdown() {
-        if (s_hUiFont) { DeleteObject(s_hUiFont); s_hUiFont = NULL; }
-        if (s_hGridBitmap) { DeleteObject(s_hGridBitmap); s_hGridBitmap = NULL; }
-        if (s_hGridDC) { DeleteDC(s_hGridDC); s_hGridDC = NULL; }
     }
 
     void LayoutZoomSlider(HWND hwnd) {
@@ -233,8 +242,8 @@ namespace RadarRenderer {
             shadowMask = ComputeShadowMask(snapshot.intensity);
         }
         const int stride = GRID_SIZE * 3; // 24bpp, GRID_SIZE*3 is already 4-byte aligned
-        constexpr int gridCenter = GRID_SIZE / 2;
-        constexpr int gridMaxRadiusSq = gridCenter * gridCenter; // circular HUD boundary in grid space
+        const int gridCenter = GRID_SIZE / 2;
+        const int gridMaxRadiusSq = gridCenter * gridCenter; // circular HUD boundary in grid space
         for (int y = 0; y < GRID_SIZE; ++y) {
             uint8_t* row = s_pGridBits + static_cast<size_t>(y) * stride;
             int dy = y - gridCenter;

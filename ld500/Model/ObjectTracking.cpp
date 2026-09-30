@@ -4,6 +4,12 @@
 #include <cmath>
 #include <functional>
 
+int    MIN_CLUSTER_CELLS = 20;
+double MAX_MATCH_DIST_CELLS = 60.0;
+int    MAX_MISSED_FRAMES = 20;
+int    MIN_CONFIRM_FRAMES = 8;
+double MAX_STATIC_PERSISTENCE_FOR_TRACKING = 8.0;
+
 void ObjectTracker::Update(const RadarGridSnapshot& snapshot, bool trackingEnabled) {
     if (!m_Initialized) {
         m_LastSeenResetGeneration = snapshot.resetGeneration;

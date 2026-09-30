@@ -14,11 +14,12 @@ struct TrackedObject {
     int hitStreak;      // Consecutive frames matched; must reach MIN_CONFIRM_FRAMES to be shown
 };
 
-constexpr int    MIN_CLUSTER_CELLS = 20;          // Ignore small noise blips (larger = less sensitive)
-constexpr double MAX_MATCH_DIST_CELLS = 60.0;     // Max grid-cell distance to associate a cluster with a track
-constexpr int    MAX_MISSED_FRAMES = 20;          // Frames a track may go unmatched before being dropped
-constexpr int    MIN_CONFIRM_FRAMES = 8;          // Consecutive matched frames required before a track is shown
-constexpr double MAX_STATIC_PERSISTENCE_FOR_TRACKING = 8.0; // Clusters averaging above this persistence are static background, not tracked
+// Object-tracking tuning parameters, persisted settings (defaults shown below).
+extern int    MIN_CLUSTER_CELLS;          // Ignore small noise blips (larger = less sensitive); default 20
+extern double MAX_MATCH_DIST_CELLS;       // Max grid-cell distance to associate a cluster with a track; default 60.0
+extern int    MAX_MISSED_FRAMES;          // Frames a track may go unmatched before being dropped; default 20
+extern int    MIN_CONFIRM_FRAMES;         // Consecutive matched frames required before a track is shown; default 8
+extern double MAX_STATIC_PERSISTENCE_FOR_TRACKING; // Clusters averaging above this persistence are static background, not tracked; default 8.0
 
 // Persistent clustering/tracking state carried between paint frames.
 class ObjectTracker {

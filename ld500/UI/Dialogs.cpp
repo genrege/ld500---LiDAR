@@ -3,6 +3,7 @@
 #include "SerialPort.h"
 #include "AppSettings.h"
 #include "MainWindow.h"
+#include "RadarRenderer.h"
 
 // Refreshes the Manage Ports dialog's list box with the currently detected serial ports and their
 // connected device descriptions, preserving the current connection's selection where possible.
@@ -103,6 +104,13 @@ INT_PTR CALLBACK SettingsDlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
     case WM_INITDIALOG:
         SetDlgItemInt(hDlg, IDC_SETTINGS_ANGLE_OFFSET,
             static_cast<UINT>(g_GridModel.GetAngleOffsetDegrees()), FALSE);
+        SetDlgItemInt(hDlg, IDC_SETTINGS_GRID_SIZE, static_cast<UINT>(GRID_SIZE), FALSE);
+        SetDlgItemInt(hDlg, IDC_SETTINGS_MIN_CLUSTER_CELLS, static_cast<UINT>(MIN_CLUSTER_CELLS), FALSE);
+        SetDlgItemInt(hDlg, IDC_SETTINGS_MAX_MATCH_DIST, static_cast<UINT>(MAX_MATCH_DIST_CELLS), FALSE);
+        SetDlgItemInt(hDlg, IDC_SETTINGS_MAX_MISSED_FRAMES, static_cast<UINT>(MAX_MISSED_FRAMES), FALSE);
+        SetDlgItemInt(hDlg, IDC_SETTINGS_MIN_CONFIRM_FRAMES, static_cast<UINT>(MIN_CONFIRM_FRAMES), FALSE);
+        SetDlgItemInt(hDlg, IDC_SETTINGS_MAX_STATIC_PERSISTENCE,
+            static_cast<UINT>(MAX_STATIC_PERSISTENCE_FOR_TRACKING), FALSE);
         return (INT_PTR)TRUE;
 
     case WM_COMMAND:
@@ -113,6 +121,44 @@ INT_PTR CALLBACK SettingsDlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
             double offsetDegrees = translated ? static_cast<double>(rawValue % 360) : 0.0;
             g_GridModel.SetAngleOffsetDegrees(offsetDegrees);
             SaveAngleOffsetDegrees(offsetDegrees);
+
+            UINT gridSize = GetDlgItemInt(hDlg, IDC_SETTINGS_GRID_SIZE, &translated, FALSE);
+            if (translated && gridSize > 0) {
+                g_GridModel.SetGridSizeCells(static_cast<int>(gridSize));
+                RadarRenderer::ResizeGridSurface();
+                SaveGridSizeCells(static_cast<int>(gridSize));
+            }
+
+            UINT minClusterCells = GetDlgItemInt(hDlg, IDC_SETTINGS_MIN_CLUSTER_CELLS, &translated, FALSE);
+            if (translated) {
+                MIN_CLUSTER_CELLS = static_cast<int>(minClusterCells);
+                SaveMinClusterCells(MIN_CLUSTER_CELLS);
+            }
+
+            UINT maxMatchDist = GetDlgItemInt(hDlg, IDC_SETTINGS_MAX_MATCH_DIST, &translated, FALSE);
+            if (translated) {
+                MAX_MATCH_DIST_CELLS = static_cast<double>(maxMatchDist);
+                SaveMaxMatchDistCells(MAX_MATCH_DIST_CELLS);
+            }
+
+            UINT maxMissedFrames = GetDlgItemInt(hDlg, IDC_SETTINGS_MAX_MISSED_FRAMES, &translated, FALSE);
+            if (translated) {
+                MAX_MISSED_FRAMES = static_cast<int>(maxMissedFrames);
+                SaveMaxMissedFrames(MAX_MISSED_FRAMES);
+            }
+
+            UINT minConfirmFrames = GetDlgItemInt(hDlg, IDC_SETTINGS_MIN_CONFIRM_FRAMES, &translated, FALSE);
+            if (translated) {
+                MIN_CONFIRM_FRAMES = static_cast<int>(minConfirmFrames);
+                SaveMinConfirmFrames(MIN_CONFIRM_FRAMES);
+            }
+
+            UINT maxStaticPersistence = GetDlgItemInt(hDlg, IDC_SETTINGS_MAX_STATIC_PERSISTENCE, &translated, FALSE);
+            if (translated) {
+                MAX_STATIC_PERSISTENCE_FOR_TRACKING = static_cast<double>(maxStaticPersistence);
+                SaveMaxStaticPersistenceForTracking(MAX_STATIC_PERSISTENCE_FOR_TRACKING);
+            }
+
             EndDialog(hDlg, IDOK);
             return (INT_PTR)TRUE;
         }

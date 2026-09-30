@@ -102,6 +102,21 @@ namespace {
             }
             return 0;
         }
+        case WM_MOUSEWHEEL: {
+            // WM_MOUSEWHEEL delivers screen coordinates, unlike the other mouse messages here.
+            POINT pt = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+            ScreenToClient(hwnd, &pt);
+            //if (RadarRenderer::HitTestZoomSlider(pt.x, pt.y)) {
+                constexpr double ZOOM_STEP_METERS = 0.25;
+                int wheelDelta = GET_WHEEL_DELTA_WPARAM(wParam);
+                double newZoom = g_GridModel.GetZoomMeters() - (wheelDelta / static_cast<double>(WHEEL_DELTA)) * ZOOM_STEP_METERS;
+                if (newZoom < ZOOM_MIN_METERS) newZoom = ZOOM_MIN_METERS;
+                if (newZoom > ZOOM_MAX_METERS) newZoom = ZOOM_MAX_METERS;
+                g_GridModel.SetZoomMeters(newZoom);
+                InvalidateRect(hwnd, NULL, FALSE);
+            //}
+            return 0;
+        }
         case WM_PAINT: {
             PAINTSTRUCT ps;
             HDC hdc = BeginPaint(hwnd, &ps);

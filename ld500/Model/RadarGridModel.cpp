@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <array>
 
+int GRID_SIZE = 1000;
+
 namespace {
     // Sensor angle output resolution: LD500 start/end angle fields are integers in 0.01-degree
     // units, so the lookup table below has one entry per possible 0.01-degree step.
@@ -137,6 +139,16 @@ void RadarGridModel::SetZoomMeters(double zoomMeters) {
 
 double RadarGridModel::GetZoomMeters() const {
     return m_ZoomMeters.load(std::memory_order_relaxed);
+}
+
+void RadarGridModel::SetGridSizeCells(int cells) {
+    if (cells <= 0 || cells == GRID_SIZE) return;
+    std::lock_guard<std::mutex> lock(m_Mutex);
+    GRID_SIZE = cells;
+    m_IntensityGrid.assign(static_cast<size_t>(GRID_SIZE) * GRID_SIZE, 0);
+    m_PersistenceGrid.assign(static_cast<size_t>(GRID_SIZE) * GRID_SIZE, 0);
+    m_FreshGrid.assign(static_cast<size_t>(GRID_SIZE) * GRID_SIZE, 0);
+    ResetGridsLocked();
 }
 
 void RadarGridModel::SetAngleOffsetDegrees(double offsetDegrees) {

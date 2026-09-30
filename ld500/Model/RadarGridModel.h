@@ -10,8 +10,9 @@
 #include <atomic>
 #include "RadarTypes.h"
 
-// Grid is GRID_SIZE x GRID_SIZE cells
-constexpr int GRID_SIZE = 1000;
+// Grid is GRID_SIZE x GRID_SIZE cells. A persisted setting (default 1000); can change live via
+// SetGridSizeCells() paired with RadarRenderer::ResizeGridSurface().
+extern int GRID_SIZE;
 constexpr int CELL_DECAY_INTERVAL_MS = 12;       // How often (ms) each nonzero cell decrements by 1 (~3s full fade)
 constexpr double ZOOM_MIN_METERS = 1.0;          // Nearest zoom range selectable on the slider
 constexpr double ZOOM_MAX_METERS = 20.0;         // Farthest zoom range selectable on the slider
@@ -52,6 +53,10 @@ public:
     // generation so consumers (e.g. object tracking) know to drop stale state.
     void SetZoomMeters(double zoomMeters);
     double GetZoomMeters() const;
+
+    // Applies a new grid size (cells per side), resizing and clearing all grids. Caller must also
+    // call RadarRenderer::ResizeGridSurface() afterward to match the renderer's DIB surface to it.
+    void SetGridSizeCells(int cells);
 
     // Updates the LIDAR mounting/orientation offset (degrees, wraps to [0, 360)) added to every
     // incoming reading's angle before it's plotted. Clears all grids on change like SetZoomMeters()

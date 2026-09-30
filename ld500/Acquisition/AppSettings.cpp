@@ -7,6 +7,12 @@ namespace {
     const wchar_t* kTrackingEnabledValueName = L"TrackingEnabled";
     const wchar_t* kShadowCastEnabledValueName = L"ShadowCastEnabled";
     const wchar_t* kPersistenceEnabledValueName = L"PersistenceEnabled";
+    const wchar_t* kGridSizeCellsValueName = L"GridSizeCells";
+    const wchar_t* kMinClusterCellsValueName = L"MinClusterCells";
+    const wchar_t* kMaxMatchDistCellsValueName = L"MaxMatchDistCells";
+    const wchar_t* kMaxMissedFramesValueName = L"MaxMissedFrames";
+    const wchar_t* kMinConfirmFramesValueName = L"MinConfirmFrames";
+    const wchar_t* kMaxStaticPersistenceForTrackingValueName = L"MaxStaticPersistenceForTracking";
 
     // Reads a DWORD value from the app's registry key; returns false (outValue untouched) if the
     // key/value doesn't exist or isn't a DWORD.
@@ -71,4 +77,59 @@ bool LoadPersistenceEnabled() {
 
 void SavePersistenceEnabled(bool enabled) {
     WriteRegistryDword(kPersistenceEnabledValueName, enabled ? 1 : 0);
+}
+
+int LoadGridSizeCells() {
+    DWORD value = 0;
+    int result = ReadRegistryDword(kGridSizeCellsValueName, value) ? static_cast<int>(value) : 1000;
+    return result > 0 ? result : 1000;
+}
+
+void SaveGridSizeCells(int cells) {
+    WriteRegistryDword(kGridSizeCellsValueName, static_cast<DWORD>(cells));
+}
+
+int LoadMinClusterCells() {
+    DWORD value = 0;
+    return ReadRegistryDword(kMinClusterCellsValueName, value) ? static_cast<int>(value) : 20;
+}
+
+void SaveMinClusterCells(int cells) {
+    WriteRegistryDword(kMinClusterCellsValueName, static_cast<DWORD>(cells));
+}
+
+double LoadMaxMatchDistCells() {
+    DWORD value = 0;
+    return ReadRegistryDword(kMaxMatchDistCellsValueName, value) ? static_cast<double>(value) : 60.0;
+}
+
+void SaveMaxMatchDistCells(double cells) {
+    WriteRegistryDword(kMaxMatchDistCellsValueName, static_cast<DWORD>(cells + 0.5));
+}
+
+int LoadMaxMissedFrames() {
+    DWORD value = 0;
+    return ReadRegistryDword(kMaxMissedFramesValueName, value) ? static_cast<int>(value) : 20;
+}
+
+void SaveMaxMissedFrames(int frames) {
+    WriteRegistryDword(kMaxMissedFramesValueName, static_cast<DWORD>(frames));
+}
+
+int LoadMinConfirmFrames() {
+    DWORD value = 0;
+    return ReadRegistryDword(kMinConfirmFramesValueName, value) ? static_cast<int>(value) : 8;
+}
+
+void SaveMinConfirmFrames(int frames) {
+    WriteRegistryDword(kMinConfirmFramesValueName, static_cast<DWORD>(frames));
+}
+
+double LoadMaxStaticPersistenceForTracking() {
+    DWORD value = 0;
+    return ReadRegistryDword(kMaxStaticPersistenceForTrackingValueName, value) ? static_cast<double>(value) : 8.0;
+}
+
+void SaveMaxStaticPersistenceForTracking(double persistence) {
+    WriteRegistryDword(kMaxStaticPersistenceForTrackingValueName, static_cast<DWORD>(persistence + 0.5));
 }

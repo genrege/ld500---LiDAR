@@ -25,6 +25,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         }
     }
 
+    g_GridModel.SetGridSizeCells(LoadGridSizeCells());
+    MIN_CLUSTER_CELLS = LoadMinClusterCells();
+    MAX_MATCH_DIST_CELLS = LoadMaxMatchDistCells();
+    MAX_MISSED_FRAMES = LoadMaxMissedFrames();
+    MIN_CONFIRM_FRAMES = LoadMinConfirmFrames();
+    MAX_STATIC_PERSISTENCE_FOR_TRACKING = LoadMaxStaticPersistenceForTracking();
+
     RadarRenderer::Init();
     g_GridModel.SetAngleOffsetDegrees(LoadAngleOffsetDegrees());
     g_GridModel.SetPersistenceEnabled(LoadPersistenceEnabled());

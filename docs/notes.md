@@ -126,3 +126,26 @@ considering this fully done.
 - Still TODO: manual smoke test (toggle Tracking/Shadow, restart app, confirm state and shadow
   rendering are remembered/correct and no longer patchy).
 
+## Mouse-wheel zoom + grid size/tracking tuning settings (new features)
+- `UI/MainWindow.cpp`: `WM_MOUSEWHEEL` adjusts the zoom slider directly when the cursor is over its
+  hit-test region (`RadarRenderer::HitTestZoomSlider`) - 1 meter per wheel notch, clamped to
+  `[ZOOM_MIN_METERS, ZOOM_MAX_METERS]`. No registry persistence needed since zoom already isn't saved.
+- `Model/RadarGridModel.h/.cpp`: `GRID_SIZE` changed from `constexpr` to a runtime global (default
+  1000, was a hardcoded 1200), plus a new `SetGridSizeCells()` that resizes/clears the three grids.
+  Applied once in `WinMain` before `RadarRenderer::Init()`, since the renderer's off-screen DIB
+  surface is sized once at startup - **changing grid size requires an app restart** to take effect;
+  the Settings dialog only persists the new value, it doesn't call `SetGridSizeCells()` live.
+- `Model/ObjectTracking.h/.cpp`: the five tracking tuning constants (`MIN_CLUSTER_CELLS`,
+  `MAX_MATCH_DIST_CELLS`, `MAX_MISSED_FRAMES`, `MIN_CONFIRM_FRAMES`,
+  `MAX_STATIC_PERSISTENCE_FOR_TRACKING`) changed from `constexpr` to mutable globals - these apply
+  live on dialog OK since they're just read per-frame in `ObjectTracker::Update()`, no buffer sizing
+  implications.
+- `Acquisition/AppSettings.h/.cpp`: added Load/Save pairs for all six values above, same
+  `HKCU\Software\LD500` registry key (REG_DWORD; the two `double` tracking params round to the
+  nearest whole number on save, same lossy-but-fine precision as `AngleOffsetDegrees`).
+- `UI/Dialogs.cpp` / `ld500.rc`: `IDD_SETTINGS` dialog grew six more label+edit rows for the new
+  values; `SettingsDlgProc` populates them on init and validates/applies/saves them on OK.
+- Verified: Debug|x64 and Release|x64 both build with 0 errors.
+- Still TODO: manual smoke test (mouse-wheel zoom, edit each new Settings field, restart to confirm
+  grid size took effect, confirm tracking behavior changes live without restart).
+
