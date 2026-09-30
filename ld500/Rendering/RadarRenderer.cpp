@@ -19,33 +19,25 @@ namespace {
     // tick marks and a green thumb, tracked entirely via mouse messages in the caller's WndProc.
     RECT s_ZoomSliderRect = { 0, 0, 0, 0 };
 
-    // Same style, but horizontal: controls the brightness multiplier applied to non-shadow
-    // empty-cell background color.
-    RECT s_IntensitySliderRect = { 0, 0, 0, 0 };
-    double s_BackgroundIntensity = 1.0;
+    constexpr int SHADOW_ANGLE_BUCKETS = 3600; // 0.1-degree buckets
 
-    constexpr int SHADOW_ANGLE_BUCKETS = 180; // 360/x degree buckets
-
-    // Precomputed angle bucket for every grid cell relative to the grid center, rebuilt whenever
-    // GRID_SIZE changes (live grid-size updates) so ComputeShadowMask() below never needs a
-    // per-frame atan2() call.
+    // Precomputed angle bucket for every grid cell relative to the grid center, built once on first
+    // use so ComputeShadowMask() below never needs a per-frame atan2() call.
     const std::vector<uint16_t>& ShadowAngleBucketTable() {
-        static std::vector<uint16_t> table;
-        static int tableGridSize = -1;
-        if (tableGridSize == GRID_SIZE) return table;
-
-        table.assign(static_cast<size_t>(GRID_SIZE) * GRID_SIZE, 0);
-        const int center = GRID_SIZE / 2;
-        for (int y = 0; y < GRID_SIZE; ++y) {
-            for (int x = 0; x < GRID_SIZE; ++x) {
-                double angle = std::atan2(static_cast<double>(y - center), static_cast<double>(x - center));
-                if (angle < 0.0) angle += 2.0 * PI;
-                int bucket = static_cast<int>(angle / (2.0 * PI) * SHADOW_ANGLE_BUCKETS);
-                if (bucket >= SHADOW_ANGLE_BUCKETS) bucket = SHADOW_ANGLE_BUCKETS - 1;
-                table[static_cast<size_t>(y) * GRID_SIZE + x] = static_cast<uint16_t>(bucket);
+        static const std::vector<uint16_t> table = [] {
+            std::vector<uint16_t> t(static_cast<size_t>(GRID_SIZE) * GRID_SIZE, 0);
+            constexpr int center = GRID_SIZE / 2;
+            for (int y = 0; y < GRID_SIZE; ++y) {
+                for (int x = 0; x < GRID_SIZE; ++x) {
+                    double angle = std::atan2(static_cast<double>(y - center), static_cast<double>(x - center));
+                    if (angle < 0.0) angle += 2.0 * PI;
+                    int bucket = static_cast<int>(angle / (2.0 * PI) * SHADOW_ANGLE_BUCKETS);
+                    if (bucket >= SHADOW_ANGLE_BUCKETS) bucket = SHADOW_ANGLE_BUCKETS - 1;
+                    t[static_cast<size_t>(y) * GRID_SIZE + x] = static_cast<uint16_t>(bucket);
+                }
             }
-        }
-        tableGridSize = GRID_SIZE;
+            return t;
+            }();
         return table;
     }
 
@@ -56,8 +48,8 @@ namespace {
     // (moire/patchiness) at larger radii. Explicitly clipped to the grid's inscribed circle so
     // shadows never bleed into the square grid's corners, outside the circular HUD.
     std::vector<uint8_t> ComputeShadowMask(const std::vector<uint8_t>& intensityGrid) {
-        const int center = GRID_SIZE / 2;
-        const int maxRadiusSq = center * center;
+        constexpr int center = GRID_SIZE / 2;
+        constexpr int maxRadiusSq = center * center;
         const std::vector<uint16_t>& angleBucket = ShadowAngleBucketTable();
 
         std::vector<int> nearestHitRadiusSq(SHADOW_ANGLE_BUCKETS, INT_MAX);
@@ -300,13 +292,6 @@ namespace RadarRenderer {
         return PtInRect(&hitRect, pt) != FALSE;
     }
 
-    bool HitTestIntensitySlider(int x, int y) {
-        RECT hitRect = s_IntensitySliderRect;
-        hitRect.left -= 10; hitRect.right += 10; hitRect.top -= 10; hitRect.bottom += 10;
-        POINT pt = { x, y };
-        return PtInRect(&hitRect, pt) != FALSE;
-    }
-
     void PaintRadar(HDC hdc, HWND hwnd, RadarGridModel& model, ObjectTracker& tracker, bool trackingEnabled, bool shadowCastEnabled) {
         // Double buffering layer instantiation to block window monitor screen flickers
         RECT rect;
@@ -343,13 +328,8 @@ namespace RadarRenderer {
             shadowMask = ComputeShadowMask(snapshot.intensity);
         }
         const int stride = GRID_SIZE * 3; // 24bpp, GRID_SIZE*3 is already 4-byte aligned
-        const int gridCenter = GRID_SIZE / 2;
-        const int gridMaxRadiusSq = gridCenter * gridCenter; // circular HUD boundary in grid space
-        // Brightness multiplier for non-shadow empty-cell background, adjustable via the top-right slider.
-        double bgIntensity = s_BackgroundIntensity;
-        BYTE bgR = static_cast<BYTE>(min(255.0, 10.0 * bgIntensity));
-        BYTE bgG = static_cast<BYTE>(min(255.0, 16.0 * bgIntensity));
-        BYTE bgB = static_cast<BYTE>(min(255.0, 10.0 * bgIntensity));
+        constexpr int gridCenter = GRID_SIZE / 2;
+        constexpr int gridMaxRadiusSq = gridCenter * gridCenter; // circular HUD boundary in grid space
         for (int y = 0; y < GRID_SIZE; ++y) {
             uint8_t* row = s_pGridBits + static_cast<size_t>(y) * stride;
             int dy = y - gridCenter;
@@ -366,7 +346,7 @@ namespace RadarRenderer {
                         r = 0; g = 6; b = 0; // Very dark green, darker than the plain background: occluded from the sensor
                     }
                     else {
-                        r = bgR; g = bgG; b = bgB; // Background color, scaled by the intensity slider
+                        r = 10; g = 16; b = 10; // Background color
                     }
                 }
                 // A cell still counting down its freshness marker is a recent new detection (transition
@@ -555,7 +535,7 @@ namespace RadarRenderer {
         // popup dialog to surface the failure anymore.
         SetTextColor(hdcMem, hudPortConnected ? RGB(0, 255, 0) : RGB(255, 0, 0));
         swprintf_s(hudText, L"LD500 SCOPE %s | %s @ %u BAUD | MAX: %.1fm | DATA POINTS: %d",
-            hudPortConnected ? L"ACTIVE" : L"BAD PORT", hudPortName.c_str(), hudBaudRate, currentZoomMeters, visiblePointCount);
+            hudPortConnected ? L"ACTIVE" : L"DISCONNECTED", hudPortName.c_str(), hudBaudRate, currentZoomMeters, visiblePointCount);
         GdiHudSurface hudSurface(hdcMem);
         hudSurface.DrawHudText(15, 15, hudText);
 

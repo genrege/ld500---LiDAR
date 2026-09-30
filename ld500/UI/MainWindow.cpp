@@ -54,17 +54,6 @@ namespace {
                 InvalidateRect(hwnd, NULL, FALSE);
                 return 0;
             }
-            case IDM_TOGGLE_PERSISTENCE: {
-                bool newState = !g_GridModel.GetPersistenceEnabled();
-                g_GridModel.SetPersistenceEnabled(newState);
-                SavePersistenceEnabled(newState);
-                HMENU hMenu = GetMenu(hwnd);
-                if (hMenu) {
-                    CheckMenuItem(hMenu, IDM_TOGGLE_PERSISTENCE, MF_BYCOMMAND | (newState ? MF_CHECKED : MF_UNCHECKED));
-                }
-                InvalidateRect(hwnd, NULL, FALSE);
-                return 0;
-            }
             case IDM_ABOUT:
                 DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_ABOUTBOX), hwnd, AboutDlgProc);
                 return 0;

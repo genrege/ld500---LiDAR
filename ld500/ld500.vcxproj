@@ -165,8 +165,6 @@
     <ClInclude Include="Rendering\RadarRenderer.h" />
     <ClInclude Include="Rendering\IHudSurface.h" />
     <ClInclude Include="Rendering\GdiHudSurface.h" />
-    <ClInclude Include="Rendering\RadarRendererImGui.h" />
-    <ClInclude Include="Rendering\ImGuiHudSurface.h" />
     <ClInclude Include="UI\Dialogs.h" />
     <ClInclude Include="UI\MainWindow.h" />
     <ClInclude Include="Platform\ISerialPort.h" />
@@ -188,8 +186,6 @@
     <ClCompile Include="Model\ObjectTracking.cpp" />
     <ClCompile Include="Rendering\RadarRenderer.cpp" />
     <ClCompile Include="Rendering\GdiHudSurface.cpp" />
-    <ClCompile Include="Rendering\RadarRendererImGui.cpp" />
-    <ClCompile Include="Rendering\ImGuiHudSurface.cpp" />
     <ClCompile Include="UI\Dialogs.cpp" />
     <ClCompile Include="UI\MainWindow.cpp" />
     <ClCompile Include="Platform\Win32SerialPort.cpp" />

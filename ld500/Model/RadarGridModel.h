@@ -54,21 +54,11 @@ public:
     void SetZoomMeters(double zoomMeters);
     double GetZoomMeters() const;
 
-    // Applies a new grid size (cells per side), resizing and clearing all grids. Caller must also
-    // call RadarRenderer::ResizeGridSurface() afterward to match the renderer's DIB surface to it.
-    void SetGridSizeCells(int cells);
-
     // Updates the LIDAR mounting/orientation offset (degrees, wraps to [0, 360)) added to every
     // incoming reading's angle before it's plotted. Clears all grids on change like SetZoomMeters()
     // does, since previously plotted points are no longer valid at the new orientation.
     void SetAngleOffsetDegrees(double offsetDegrees);
     double GetAngleOffsetDegrees() const;
-
-    // Enables/disables persistence growth on repeat hits (the effect that trends static objects
-    // toward brighter green and excludes them from object tracking). Disabling immediately clears
-    // the persistence grid so any existing highlighting reverts right away.
-    void SetPersistenceEnabled(bool enabled);
-    bool GetPersistenceEnabled() const;
 
     int GetResetGeneration() const;
 
@@ -90,7 +80,6 @@ private:
     std::vector<uint16_t> m_TicksSinceHit;
     std::atomic<double>  m_ZoomMeters;
     std::atomic<double>  m_AngleOffsetDegrees;
-    std::atomic<bool>    m_PersistenceEnabled;
     std::atomic<int>     m_ResetGeneration;
     // Latest known full-rotation duration (ms), derived from readings' reported motor speed; used
     // to size persistence-off decay to one rotation instead of a fixed fast halving (see TickDecay).

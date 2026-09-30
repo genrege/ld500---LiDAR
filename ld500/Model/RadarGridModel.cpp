@@ -3,8 +3,6 @@
 #include <algorithm>
 #include <array>
 
-int GRID_SIZE = 1000;
-
 namespace {
     // Sensor angle output resolution: LD500 start/end angle fields are integers in 0.01-degree
     // units, so the lookup table below has one entry per possible 0.01-degree step.
@@ -51,9 +49,7 @@ RadarGridModel::RadarGridModel()
     , m_TicksSinceHit(static_cast<size_t>(GRID_SIZE)* GRID_SIZE, 0)
     , m_ZoomMeters(ZOOM_DEFAULT_METERS)
     , m_AngleOffsetDegrees(0.0)
-    , m_PersistenceEnabled(true)
-    , m_ResetGeneration(0)
-    , m_RotationPeriodMs(200.0) {
+    , m_ResetGeneration(0) {
 }
 
 void RadarGridModel::IngestReadings(const std::vector<RadarReading>& readings) {
@@ -169,17 +165,6 @@ double RadarGridModel::GetZoomMeters() const {
     return m_ZoomMeters.load(std::memory_order_relaxed);
 }
 
-void RadarGridModel::SetGridSizeCells(int cells) {
-    if (cells <= 0 || cells == GRID_SIZE) return;
-    std::lock_guard<std::mutex> lock(m_Mutex);
-    GRID_SIZE = cells;
-    m_IntensityGrid.assign(static_cast<size_t>(GRID_SIZE) * GRID_SIZE, 0);
-    m_PersistenceGrid.assign(static_cast<size_t>(GRID_SIZE) * GRID_SIZE, 0);
-    m_FreshGrid.assign(static_cast<size_t>(GRID_SIZE) * GRID_SIZE, 0);
-    m_TicksSinceHit.assign(static_cast<size_t>(GRID_SIZE) * GRID_SIZE, 0);
-    ResetGridsLocked();
-}
-
 void RadarGridModel::SetAngleOffsetDegrees(double offsetDegrees) {
     double wrapped = std::fmod(offsetDegrees, 360.0);
     if (wrapped < 0.0) wrapped += 360.0;
@@ -194,23 +179,10 @@ double RadarGridModel::GetAngleOffsetDegrees() const {
     return m_AngleOffsetDegrees.load(std::memory_order_relaxed);
 }
 
-void RadarGridModel::SetPersistenceEnabled(bool enabled) {
-    bool wasEnabled = m_PersistenceEnabled.exchange(enabled, std::memory_order_relaxed);
-    if (wasEnabled && !enabled) {
-        std::lock_guard<std::mutex> lock(m_Mutex);
-        std::fill(m_PersistenceGrid.begin(), m_PersistenceGrid.end(), 0);
-    }
-}
-
-bool RadarGridModel::GetPersistenceEnabled() const {
-    return m_PersistenceEnabled.load(std::memory_order_relaxed);
-}
-
 void RadarGridModel::ResetGridsLocked() {
     std::fill(m_IntensityGrid.begin(), m_IntensityGrid.end(), 0);
     std::fill(m_PersistenceGrid.begin(), m_PersistenceGrid.end(), 0);
     std::fill(m_FreshGrid.begin(), m_FreshGrid.end(), 0);
-    std::fill(m_TicksSinceHit.begin(), m_TicksSinceHit.end(), 0);
     m_ResetGeneration.fetch_add(1, std::memory_order_relaxed);
 }
 
