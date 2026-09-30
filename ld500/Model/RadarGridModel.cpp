@@ -48,6 +48,7 @@ RadarGridModel::RadarGridModel()
     : m_IntensityGrid(static_cast<size_t>(GRID_SIZE)* GRID_SIZE, 0)
     , m_PersistenceGrid(static_cast<size_t>(GRID_SIZE)* GRID_SIZE, 0)
     , m_FreshGrid(static_cast<size_t>(GRID_SIZE)* GRID_SIZE, 0)
+    , m_TicksSinceHit(static_cast<size_t>(GRID_SIZE)* GRID_SIZE, 0)
     , m_ZoomMeters(ZOOM_DEFAULT_METERS)
     , m_AngleOffsetDegrees(0.0)
     , m_PersistenceEnabled(true)
@@ -111,25 +112,32 @@ void RadarGridModel::IngestReadings(const std::vector<RadarReading>& readings) {
         }
 
         m_IntensityGrid[cellIndex] = 255;
+        m_TicksSinceHit[cellIndex] = 0;
     }
 }
 
 void RadarGridModel::TickDecay() {
     std::lock_guard<std::mutex> lock(m_Mutex);
     bool persistenceEnabled = m_PersistenceEnabled.load(std::memory_order_relaxed);
-    // With persistence off, size the decay step so a full rotation's worth of hits stays visible
-    // simultaneously (otherwise, e.g. shadow-casting - which needs a full circle of "nearest hit
-    // per angle" - only ever sees whatever narrow arc the beam is currently sweeping, rendering as
-    // a rotating wedge instead of a stable shadow map).
+    // With persistence off, a cell holds at full brightness while still within one expected
+    // rotation of its last hit, and only starts fading once overdue. A straight linear decay here
+    // instead would make most of a rotation's sweep imperceptibly dark well before it's actually
+    // stale (the green->grey->black color curve isn't linear in intensity), which both looked like
+    // only a narrow "current beam" arc was visible and broke shadow-casting (which needs a full
+    // circle of "nearest hit per angle" to work, not just the freshest sliver).
     double rotationPeriodMs = m_RotationPeriodMs.load(std::memory_order_relaxed);
     int ticksPerRotation = std::max(1, static_cast<int>(rotationPeriodMs / CELL_DECAY_INTERVAL_MS));
-    uint8_t decayStep = static_cast<uint8_t>(std::max(1, 255 / ticksPerRotation));
+    // 25% grace period beyond one rotation before a cell is considered overdue, to tolerate normal
+    // rotation-speed jitter without every cell flickering out right at the rotation boundary.
+    int overdueThresholdTicks = ticksPerRotation + ticksPerRotation / 4;
+    uint8_t decayStep = static_cast<uint8_t>(std::max(1, 255 / std::max(1, ticksPerRotation / 2)));
     for (size_t i = 0; i < m_IntensityGrid.size(); ++i) {
         if (m_IntensityGrid[i] > 0) {
+            if (m_TicksSinceHit[i] < 0xFFFF) ++m_TicksSinceHit[i];
             if (persistenceEnabled) {
                 --m_IntensityGrid[i];
             }
-            else {
+            else if (m_TicksSinceHit[i] > overdueThresholdTicks) {
                 m_IntensityGrid[i] = (m_IntensityGrid[i] > decayStep) ? m_IntensityGrid[i] - decayStep : 0;
             }
             if (m_IntensityGrid[i] == 0) {
@@ -168,6 +176,7 @@ void RadarGridModel::SetGridSizeCells(int cells) {
     m_IntensityGrid.assign(static_cast<size_t>(GRID_SIZE) * GRID_SIZE, 0);
     m_PersistenceGrid.assign(static_cast<size_t>(GRID_SIZE) * GRID_SIZE, 0);
     m_FreshGrid.assign(static_cast<size_t>(GRID_SIZE) * GRID_SIZE, 0);
+    m_TicksSinceHit.assign(static_cast<size_t>(GRID_SIZE) * GRID_SIZE, 0);
     ResetGridsLocked();
 }
 
@@ -201,6 +210,7 @@ void RadarGridModel::ResetGridsLocked() {
     std::fill(m_IntensityGrid.begin(), m_IntensityGrid.end(), 0);
     std::fill(m_PersistenceGrid.begin(), m_PersistenceGrid.end(), 0);
     std::fill(m_FreshGrid.begin(), m_FreshGrid.end(), 0);
+    std::fill(m_TicksSinceHit.begin(), m_TicksSinceHit.end(), 0);
     m_ResetGeneration.fetch_add(1, std::memory_order_relaxed);
 }
 

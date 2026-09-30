@@ -80,9 +80,14 @@ private:
     void ResetGridsLocked();
 
     mutable std::mutex   m_Mutex;
-    std::vector<uint8_t> m_IntensityGrid;
-    std::vector<uint8_t> m_PersistenceGrid;
-    std::vector<uint8_t> m_FreshGrid;
+    std::vector<uint8_t>  m_IntensityGrid;
+    std::vector<uint8_t>  m_PersistenceGrid;
+    std::vector<uint8_t>  m_FreshGrid;
+    // Ticks since each cell's last hit, with persistence off: a cell holds full brightness while
+    // still within one expected rotation of its last hit, and only starts fading once overdue (see
+    // TickDecay) - otherwise a linear per-tick decay makes most of a rotation's sweep imperceptibly
+    // dark well before it's actually stale, since color-curve brightness isn't linear in intensity.
+    std::vector<uint16_t> m_TicksSinceHit;
     std::atomic<double>  m_ZoomMeters;
     std::atomic<double>  m_AngleOffsetDegrees;
     std::atomic<bool>    m_PersistenceEnabled;
