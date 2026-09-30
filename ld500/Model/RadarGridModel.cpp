@@ -51,7 +51,8 @@ RadarGridModel::RadarGridModel()
     , m_ZoomMeters(ZOOM_DEFAULT_METERS)
     , m_AngleOffsetDegrees(0.0)
     , m_PersistenceEnabled(true)
-    , m_ResetGeneration(0) {
+    , m_ResetGeneration(0)
+    , m_RotationPeriodMs(200.0) {
 }
 
 void RadarGridModel::IngestReadings(const std::vector<RadarReading>& readings) {
@@ -60,6 +61,16 @@ void RadarGridModel::IngestReadings(const std::vector<RadarReading>& readings) {
     double offsetDegrees = m_AngleOffsetDegrees.load(std::memory_order_relaxed);
 
     for (const auto& reading : readings) {
+        // Track the sensor's actual rotation speed (even for out-of-range points) so persistence-off
+        // decay (see TickDecay) can be sized to one full rotation. Clamped to a sane range in case of
+        // a garbled/zero speed field.
+        if (reading.speedDegPerSec > 0) {
+            double periodMs = 360000.0 / static_cast<double>(reading.speedDegPerSec);
+            if (periodMs < 20.0) periodMs = 20.0;
+            if (periodMs > 2000.0) periodMs = 2000.0;
+            m_RotationPeriodMs.store(periodMs, std::memory_order_relaxed);
+        }
+
         if (reading.isOutOfRange || reading.distanceMm == 0) continue;
 
         // Convert polar reading into cartesian grid cell coordinates and mark it hot.
@@ -106,15 +117,20 @@ void RadarGridModel::IngestReadings(const std::vector<RadarReading>& readings) {
 void RadarGridModel::TickDecay() {
     std::lock_guard<std::mutex> lock(m_Mutex);
     bool persistenceEnabled = m_PersistenceEnabled.load(std::memory_order_relaxed);
+    // With persistence off, size the decay step so a full rotation's worth of hits stays visible
+    // simultaneously (otherwise, e.g. shadow-casting - which needs a full circle of "nearest hit
+    // per angle" - only ever sees whatever narrow arc the beam is currently sweeping, rendering as
+    // a rotating wedge instead of a stable shadow map).
+    double rotationPeriodMs = m_RotationPeriodMs.load(std::memory_order_relaxed);
+    int ticksPerRotation = std::max(1, static_cast<int>(rotationPeriodMs / CELL_DECAY_INTERVAL_MS));
+    uint8_t decayStep = static_cast<uint8_t>(std::max(1, 255 / ticksPerRotation));
     for (size_t i = 0; i < m_IntensityGrid.size(); ++i) {
         if (m_IntensityGrid[i] > 0) {
-            // With persistence off, cells are binary: drop instantly instead of fading over ~3s so
-            // only currently-detected points are ever shown (well under 100ms, i.e. one decay tick).
             if (persistenceEnabled) {
                 --m_IntensityGrid[i];
             }
             else {
-                m_IntensityGrid[i] = m_IntensityGrid[i]>> 1;
+                m_IntensityGrid[i] = (m_IntensityGrid[i] > decayStep) ? m_IntensityGrid[i] - decayStep : 0;
             }
             if (m_IntensityGrid[i] == 0) {
                 m_PersistenceGrid[i] = 0; // Object is gone; next hit here starts fresh (red)

@@ -9,7 +9,7 @@
 #include <mutex>
 #include <atomic>
 #include "RadarTypes.h"
-\
+
 // Grid is GRID_SIZE x GRID_SIZE cells. A persisted setting (default 1000); can change live via
 // SetGridSizeCells() paired with RadarRenderer::ResizeGridSurface().
 extern int GRID_SIZE;
@@ -87,4 +87,7 @@ private:
     std::atomic<double>  m_AngleOffsetDegrees;
     std::atomic<bool>    m_PersistenceEnabled;
     std::atomic<int>     m_ResetGeneration;
+    // Latest known full-rotation duration (ms), derived from readings' reported motor speed; used
+    // to size persistence-off decay to one rotation instead of a fixed fast halving (see TickDecay).
+    std::atomic<double>  m_RotationPeriodMs;
 };
