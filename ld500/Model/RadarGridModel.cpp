@@ -90,7 +90,11 @@ void RadarGridModel::IngestReadings(const std::vector<RadarReading>& readings) {
             // Genuine transition from no point to a point: hold the green "new
             // detection" marker for a fixed number of paint frames so it renders
             // as a steady circle instead of flickering with the fast decay tick.
-            if (m_IntensityGrid[cellIndex] == 0) {
+            // Only (re)arm it if no marker animation is already playing - with
+            // persistence off, intensity decays to 0 faster than most sensor rotation
+            // periods, so without this check a continuously-hit point would pop back
+            // to full brightness/size every rotation instead of settling.
+            if (m_IntensityGrid[cellIndex] == 0 && m_FreshGrid[cellIndex] == 0) {
                 m_FreshGrid[cellIndex] = FRESH_MARKER_FRAMES;
             }
         }
