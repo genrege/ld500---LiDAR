@@ -24,7 +24,7 @@ namespace {
     RECT s_IntensitySliderRect = { 0, 0, 0, 0 };
     double s_BackgroundIntensity = 1.0;
 
-    constexpr int SHADOW_ANGLE_BUCKETS = 180; // 2-degree buckets
+    constexpr int SHADOW_ANGLE_BUCKETS = 180; // 360/x degree buckets
 
     // Precomputed angle bucket for every grid cell relative to the grid center, rebuilt whenever
     // GRID_SIZE changes (live grid-size updates) so ComputeShadowMask() below never needs a

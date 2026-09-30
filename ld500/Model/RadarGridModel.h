@@ -14,11 +14,11 @@
 // SetGridSizeCells() paired with RadarRenderer::ResizeGridSurface().
 extern int GRID_SIZE;
 constexpr int CELL_DECAY_INTERVAL_MS = 12;       // How often (ms) each nonzero cell decrements by 1 (~3s full fade)
-constexpr double ZOOM_MIN_METERS = 0.1;          // Nearest zoom range selectable on the slider
-constexpr double ZOOM_MAX_METERS = 20.0;         // Farthest zoom range selectable on the slider
+constexpr double ZOOM_MIN_METERS = 1;          // Nearest zoom range selectable on the slider
+constexpr double ZOOM_MAX_METERS = 12.0;         // Farthest zoom range selectable on the slider
 constexpr double ZOOM_DEFAULT_METERS = 4.0;      // Initial physical distance (m) spanned by half the grid
 constexpr uint8_t STATIC_GROWTH_PER_HIT = 8;     // Persistence gained per re-hit on an already-active cell
-constexpr int FRESH_MARKER_FRAMES = 20;          // How many paint frames the green "new detection" marker stays visible
+constexpr int FRESH_MARKER_FRAMES = 50;          // How many paint frames the green "new detection" marker stays visible
 
 // Read-only copy of the grid state for a single render/tracking pass.
 struct RadarGridSnapshot {

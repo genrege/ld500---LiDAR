@@ -10,7 +10,7 @@
 
 namespace RadarRendererImGui {
     constexpr double BACKGROUND_INTENSITY_MIN = 0.0;   // Nearest intensity selectable on the slider
-    constexpr double BACKGROUND_INTENSITY_MAX = 2.0;   // Farthest intensity selectable on the slider
+    constexpr double BACKGROUND_INTENSITY_MAX = 5.0;   // Farthest intensity selectable on the slider
 
     // Creates the grid texture. Call once before the first frame.
     void Init();

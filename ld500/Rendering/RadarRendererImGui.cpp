@@ -404,10 +404,10 @@ namespace RadarRendererImGui {
         hudText[hudTextLen] = L'\0';
 
         // Bad/disconnected port is called out in red instead of the usual green.
-        ImGuiHudSurface::SetTextColor(isConnected ? IM_COL32(0, 255, 0, 255) : IM_COL32(255, 0, 0, 255));
+        ImGuiHudSurface::SetTextColor(isConnected ? IM_COL32(192, 192, 192, 220) : IM_COL32(255, 0, 0, 255));
         ImGuiHudSurface hudSurface;
         // Offset below the main menu bar, which is drawn on top of this background draw list.
-        hudSurface.DrawHudText(15, 15 + static_cast<int>(ImGui::GetFrameHeight()), hudText);
+        hudSurface.DrawHudText(15, 4 + static_cast<int>(ImGui::GetFrameHeight()), hudText);
 
         // Zoom slider: open green-frame track with white tick marks and a green thumb.
         dl->AddLine(s_ZoomSliderTop, s_ZoomSliderBottom, IM_COL32(0, 255, 0, 255));
@@ -431,7 +431,7 @@ namespace RadarRendererImGui {
         // Background intensity slider: same style, horizontal, top-right.
         dl->AddLine(s_IntensitySliderLeft, s_IntensitySliderRight, IM_COL32(0, 255, 0, 255));
         {
-            constexpr int tickSteps = 4;
+            constexpr int tickSteps = 6;
             for (int i = 0; i <= tickSteps; ++i) {
                 double tickValue = BACKGROUND_INTENSITY_MIN
                     + (BACKGROUND_INTENSITY_MAX - BACKGROUND_INTENSITY_MIN) * i / tickSteps;
