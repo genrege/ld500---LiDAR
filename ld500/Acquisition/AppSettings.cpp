@@ -13,6 +13,13 @@ namespace {
     const wchar_t* kMaxMissedFramesValueName = L"MaxMissedFrames";
     const wchar_t* kMinConfirmFramesValueName = L"MinConfirmFrames";
     const wchar_t* kMaxStaticPersistenceForTrackingValueName = L"MaxStaticPersistenceForTracking";
+    const wchar_t* kComPortNameValueName = L"ComPortName";
+    const wchar_t* kZoomMetersValueName = L"ZoomMeters";
+    const wchar_t* kBackgroundIntensityValueName = L"BackgroundIntensity";
+
+    // Scale factor used to store the zoom/intensity doubles as DWORDs without losing the slider's
+    // fractional precision (e.g. 0.25m zoom steps, 0.1x intensity steps).
+    constexpr double kFixedPointScale = 100.0;
 
     // Reads a DWORD value from the app's registry key; returns false (outValue untouched) if the
     // key/value doesn't exist or isn't a DWORD.
@@ -36,6 +43,35 @@ namespace {
         HKEY hKey;
         if (RegCreateKeyExW(HKEY_CURRENT_USER, kRegistryPath, 0, NULL, 0, KEY_WRITE, NULL, &hKey, NULL) == ERROR_SUCCESS) {
             RegSetValueExW(hKey, valueName, 0, REG_DWORD, reinterpret_cast<const BYTE*>(&value), sizeof(value));
+            RegCloseKey(hKey);
+        }
+    }
+
+    // Reads a string value from the app's registry key; returns false (outValue untouched) if the
+    // key/value doesn't exist or isn't a string.
+    bool ReadRegistryString(const wchar_t* valueName, std::wstring& outValue) {
+        HKEY hKey;
+        bool found = false;
+        if (RegOpenKeyExW(HKEY_CURRENT_USER, kRegistryPath, 0, KEY_READ, &hKey) == ERROR_SUCCESS) {
+            wchar_t buffer[64] = { 0 };
+            DWORD size = sizeof(buffer);
+            DWORD type = 0;
+            if (RegQueryValueExW(hKey, valueName, NULL, &type, reinterpret_cast<LPBYTE>(buffer), &size) == ERROR_SUCCESS
+                && type == REG_SZ) {
+                outValue = buffer;
+                found = true;
+            }
+            RegCloseKey(hKey);
+        }
+        return found;
+    }
+
+    // Writes a string value to the app's registry key, creating the key if it doesn't exist yet.
+    void WriteRegistryString(const wchar_t* valueName, const std::wstring& value) {
+        HKEY hKey;
+        if (RegCreateKeyExW(HKEY_CURRENT_USER, kRegistryPath, 0, NULL, 0, KEY_WRITE, NULL, &hKey, NULL) == ERROR_SUCCESS) {
+            DWORD size = static_cast<DWORD>((value.size() + 1) * sizeof(wchar_t));
+            RegSetValueExW(hKey, valueName, 0, REG_SZ, reinterpret_cast<const BYTE*>(value.c_str()), size);
             RegCloseKey(hKey);
         }
     }
@@ -132,4 +168,37 @@ double LoadMaxStaticPersistenceForTracking() {
 
 void SaveMaxStaticPersistenceForTracking(double persistence) {
     WriteRegistryDword(kMaxStaticPersistenceForTrackingValueName, static_cast<DWORD>(persistence + 0.5));
+}
+
+std::wstring LoadComPortName() {
+    std::wstring value;
+    return ReadRegistryString(kComPortNameValueName, value) && !value.empty() ? value : L"COM3";
+}
+
+void SaveComPortName(const std::wstring& portName) {
+    WriteRegistryString(kComPortNameValueName, portName);
+}
+
+double LoadZoomMeters() {
+    DWORD value = 0;
+    // Mirrors RadarGridModel.h's [ZOOM_MIN_METERS, ZOOM_MAX_METERS]/ZOOM_DEFAULT_METERS.
+    double result = ReadRegistryDword(kZoomMetersValueName, value) ? static_cast<double>(value) / kFixedPointScale : 4.0;
+    if (result < 0.1 || result > 20.0) result = 4.0;
+    return result;
+}
+
+void SaveZoomMeters(double zoomMeters) {
+    WriteRegistryDword(kZoomMetersValueName, static_cast<DWORD>(zoomMeters * kFixedPointScale + 0.5));
+}
+
+double LoadBackgroundIntensity() {
+    DWORD value = 0;
+    // Mirrors RadarRenderer.h's [BACKGROUND_INTENSITY_MIN, BACKGROUND_INTENSITY_MAX].
+    double result = ReadRegistryDword(kBackgroundIntensityValueName, value) ? static_cast<double>(value) / kFixedPointScale : 1.0;
+    if (result < 0.0 || result > 2.0) result = 1.0;
+    return result;
+}
+
+void SaveBackgroundIntensity(double intensity) {
+    WriteRegistryDword(kBackgroundIntensityValueName, static_cast<DWORD>(intensity * kFixedPointScale + 0.5));
 }

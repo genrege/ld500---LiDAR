@@ -19,6 +19,11 @@ namespace {
     // tick marks and a green thumb, tracked entirely via mouse messages in the caller's WndProc.
     RECT s_ZoomSliderRect = { 0, 0, 0, 0 };
 
+    // Same style, but horizontal: controls the brightness multiplier applied to non-shadow
+    // empty-cell background color.
+    RECT s_IntensitySliderRect = { 0, 0, 0, 0 };
+    double s_BackgroundIntensity = 1.0;
+
     constexpr int SHADOW_ANGLE_BUCKETS = 180; // 2-degree buckets
 
     // Precomputed angle bucket for every grid cell relative to the grid center, rebuilt whenever
@@ -142,6 +147,63 @@ namespace {
         DeleteObject(hFramePen);
         SelectObject(hdcMem, hOldSliderFont);
     }
+
+    // Returns the thumb's center X pixel coordinate for the current background intensity value.
+    int SliderXFromIntensity(double intensity) {
+        int left = s_IntensitySliderRect.left;
+        int right = s_IntensitySliderRect.right;
+        double t = (RadarRenderer::BACKGROUND_INTENSITY_MAX > RadarRenderer::BACKGROUND_INTENSITY_MIN)
+            ? (intensity - RadarRenderer::BACKGROUND_INTENSITY_MIN)
+                / (RadarRenderer::BACKGROUND_INTENSITY_MAX - RadarRenderer::BACKGROUND_INTENSITY_MIN)
+            : 0.0;
+        return left + static_cast<int>(t * (right - left));
+    }
+
+    // Draws the open green-frame background intensity slider with white tick marks and a green
+    // thumb, plus its current-value label, directly onto the memory DC during WM_PAINT. Same
+    // style as the zoom slider, but horizontal and positioned top-right.
+    void DrawIntensitySlider(HDC hdcMem, double intensity) {
+        const RECT& r = s_IntensitySliderRect;
+
+        HFONT hOldSliderFont = (HFONT)SelectObject(hdcMem, s_hUiFont);
+
+        HPEN hFramePen = CreatePen(PS_SOLID, 1, RGB(0, 255, 0));
+        HGDIOBJ hOldPen = SelectObject(hdcMem, hFramePen);
+        HGDIOBJ hOldBrush = SelectObject(hdcMem, GetStockObject(NULL_BRUSH));
+        Rectangle(hdcMem, r.left, r.top, r.right, r.bottom);
+
+        // White tick marks at quarter intervals along the track, below the frame.
+        SetTextColor(hdcMem, RGB(255, 255, 255));
+        SetBkMode(hdcMem, TRANSPARENT);
+        HPEN hTickPen = CreatePen(PS_SOLID, 1, RGB(255, 255, 255));
+        SelectObject(hdcMem, hTickPen);
+        const int tickSteps = 4;
+        for (int i = 0; i <= tickSteps; ++i) {
+            double tickValue = RadarRenderer::BACKGROUND_INTENSITY_MIN
+                + (RadarRenderer::BACKGROUND_INTENSITY_MAX - RadarRenderer::BACKGROUND_INTENSITY_MIN) * i / tickSteps;
+            int x = SliderXFromIntensity(tickValue);
+            MoveToEx(hdcMem, x, r.bottom, NULL);
+            LineTo(hdcMem, x, r.bottom + 5);
+        }
+        DeleteObject(hTickPen);
+
+        // Green thumb showing the current intensity position.
+        int thumbX = SliderXFromIntensity(intensity);
+        int thumbHalfWidth = 5;
+        HBRUSH hThumbBrush = CreateSolidBrush(RGB(0, 255, 0));
+        SelectObject(hdcMem, hThumbBrush);
+        Rectangle(hdcMem, thumbX - thumbHalfWidth, r.top - 4, thumbX + thumbHalfWidth, r.bottom + 4);
+        DeleteObject(hThumbBrush);
+
+        wchar_t valueLabel[24];
+        swprintf_s(valueLabel, L"BG %.1fx", intensity);
+        TextOutW(hdcMem, r.left, r.bottom + 9, valueLabel, lstrlenW(valueLabel));
+
+        SelectObject(hdcMem, hOldBrush);
+        SelectObject(hdcMem, hOldPen);
+        DeleteObject(hFramePen);
+        SelectObject(hdcMem, hOldSliderFont);
+    }
 }
 
 namespace RadarRenderer {
@@ -199,8 +261,47 @@ namespace RadarRenderer {
         return ZOOM_MAX_METERS - t * (ZOOM_MAX_METERS - ZOOM_MIN_METERS);
     }
 
+    void LayoutIntensitySlider(HWND hwnd) {
+        RECT rc; GetClientRect(hwnd, &rc);
+        const int sliderLength = 80;
+        const int sliderHeight = 6;
+        const int rightMargin = 50; // Matches the zoom slider's tick-label margin
+        const int topMargin = 20;
+
+        s_IntensitySliderRect.right = (rc.right - rc.left) - rightMargin;
+        s_IntensitySliderRect.left = s_IntensitySliderRect.right - sliderLength;
+        s_IntensitySliderRect.top = topMargin;
+        s_IntensitySliderRect.bottom = s_IntensitySliderRect.top + sliderHeight;
+    }
+
+    double IntensityFromSliderX(int x) {
+        int left = s_IntensitySliderRect.left;
+        int right = s_IntensitySliderRect.right;
+        if (x < left) x = left;
+        if (x > right) x = right;
+        double t = (right > left) ? static_cast<double>(x - left) / (right - left) : 0.0;
+        return BACKGROUND_INTENSITY_MIN + t * (BACKGROUND_INTENSITY_MAX - BACKGROUND_INTENSITY_MIN);
+    }
+
+    double GetBackgroundIntensity() {
+        return s_BackgroundIntensity;
+    }
+
+    void SetBackgroundIntensity(double intensity) {
+        if (intensity < BACKGROUND_INTENSITY_MIN) intensity = BACKGROUND_INTENSITY_MIN;
+        if (intensity > BACKGROUND_INTENSITY_MAX) intensity = BACKGROUND_INTENSITY_MAX;
+        s_BackgroundIntensity = intensity;
+    }
+
     bool HitTestZoomSlider(int x, int y) {
         RECT hitRect = s_ZoomSliderRect;
+        hitRect.left -= 10; hitRect.right += 10; hitRect.top -= 10; hitRect.bottom += 10;
+        POINT pt = { x, y };
+        return PtInRect(&hitRect, pt) != FALSE;
+    }
+
+    bool HitTestIntensitySlider(int x, int y) {
+        RECT hitRect = s_IntensitySliderRect;
         hitRect.left -= 10; hitRect.right += 10; hitRect.top -= 10; hitRect.bottom += 10;
         POINT pt = { x, y };
         return PtInRect(&hitRect, pt) != FALSE;
@@ -244,6 +345,11 @@ namespace RadarRenderer {
         const int stride = GRID_SIZE * 3; // 24bpp, GRID_SIZE*3 is already 4-byte aligned
         const int gridCenter = GRID_SIZE / 2;
         const int gridMaxRadiusSq = gridCenter * gridCenter; // circular HUD boundary in grid space
+        // Brightness multiplier for non-shadow empty-cell background, adjustable via the top-right slider.
+        double bgIntensity = s_BackgroundIntensity;
+        BYTE bgR = static_cast<BYTE>(min(255.0, 10.0 * bgIntensity));
+        BYTE bgG = static_cast<BYTE>(min(255.0, 16.0 * bgIntensity));
+        BYTE bgB = static_cast<BYTE>(min(255.0, 10.0 * bgIntensity));
         for (int y = 0; y < GRID_SIZE; ++y) {
             uint8_t* row = s_pGridBits + static_cast<size_t>(y) * stride;
             int dy = y - gridCenter;
@@ -260,13 +366,13 @@ namespace RadarRenderer {
                         r = 0; g = 6; b = 0; // Very dark green, darker than the plain background: occluded from the sensor
                     }
                     else {
-                        r = 10; g = 16; b = 10; // Background color
+                        r = bgR; g = bgG; b = bgB; // Background color, scaled by the intensity slider
                     }
                 }
                 // A cell still counting down its freshness marker is a recent new detection (transition
                 // from no point to a point); it holds steady for several frames instead of flickering.
                 else if (snapshot.fresh[cellIndex] > 0) {
-                    r = 10; g = 16; b = 10; // Background color here; drawn as a green circle below
+                    r = bgR; g = bgG; b = bgB; // Background color here; drawn as a green circle below
                     freshMask[cellIndex] = 1;
 
                     // Only place a marker if none of the already-scanned neighbours (up, left,
@@ -401,8 +507,9 @@ namespace RadarRenderer {
 
         // Render circular polar radar lines maps, labeled in white with the distance auto-scaled
         // to the current zoom range selected via the vertical slider.
+
         double currentZoomMeters = model.GetZoomMeters();
-        HPEN hGridPen = CreatePen(PS_SOLID, 1, RGB(0, 80, 0));
+        HPEN hGridPen = CreatePen(PS_SOLID, 1, RGB(80, 80, 80));
         SelectObject(hdcMem, hGridPen);
         SelectObject(hdcMem, GetStockObject(NULL_BRUSH));
         int ringStep = maxRadius / 4;
@@ -425,8 +532,16 @@ namespace RadarRenderer {
         MoveToEx(hdcMem, centerX, centerY - maxRadius, NULL); LineTo(hdcMem, centerX, centerY + maxRadius);
         DeleteObject(hAxisPen);
 
+        // Centre spot
+        const int rct = 4;
+        HPEN hCentrePen = CreatePen(PS_SOLID, 1, RGB(255, 255, 255));
+        SelectObject(hdcMem, hCentrePen);
+        SelectObject(hdcMem, GetStockObject(WHITE_BRUSH));
+        Ellipse(hdcMem, centerX - rct, centerY - rct, centerX + rct, centerY + rct);
+        DeleteObject(hCentrePen);
+
+
         // Draw Configuration Metrics Data HUD Elements Overlay
-        SetTextColor(hdcMem, RGB(0, 255, 0));
         SetBkMode(hdcMem, TRANSPARENT);
         wchar_t hudText[160];
         std::wstring hudPortName; DWORD hudBaudRate;
@@ -436,13 +551,19 @@ namespace RadarRenderer {
             hudBaudRate = g_BaudRate;
         }
         bool hudPortConnected = g_hSerial.load(std::memory_order_acquire) != INVALID_HANDLE_VALUE;
+        // Bad/disconnected port is called out in red instead of the usual green, since there's no
+        // popup dialog to surface the failure anymore.
+        SetTextColor(hdcMem, hudPortConnected ? RGB(0, 255, 0) : RGB(255, 0, 0));
         swprintf_s(hudText, L"LD500 SCOPE %s | %s @ %u BAUD | MAX: %.1fm | DATA POINTS: %d",
-            hudPortConnected ? L"ACTIVE" : L"DISCONNECTED", hudPortName.c_str(), hudBaudRate, currentZoomMeters, visiblePointCount);
+            hudPortConnected ? L"ACTIVE" : L"BAD PORT", hudPortName.c_str(), hudBaudRate, currentZoomMeters, visiblePointCount);
         GdiHudSurface hudSurface(hdcMem);
         hudSurface.DrawHudText(15, 15, hudText);
 
         // Custom green-frame vertical zoom slider with white tick marks, on the RHS of the HUD.
         DrawZoomSlider(hdcMem, currentZoomMeters);
+
+        // Same style, horizontal, top-right: controls the non-shadow background brightness.
+        DrawIntensitySlider(hdcMem, s_BackgroundIntensity);
 
         // BitBlt final output surface frames up onto core windows viewport layer instantly
         BitBlt(hdc, 0, 0, width, height, hdcMem, 0, 0, SRCCOPY);

@@ -6,9 +6,25 @@
 #include "RadarRenderer.h"
 
 // Refreshes the Manage Ports dialog's list box with the currently detected serial ports and their
-// connected device descriptions, preserving the current connection's selection where possible.
+// connected device descriptions, preserving whichever port the user has selected (falling back to
+// the active connection's port only when nothing was selected yet).
 static void RefreshPortsListBox(HWND hDlg) {
     HWND hList = GetDlgItem(hDlg, IDC_PORTS_LIST);
+
+    // Capture the currently selected port name before wiping the list, so periodic/background
+    // refreshes (the timer, or after Reset/Connect) don't clobber the user's manual click.
+    std::wstring selectedPortName;
+    int prevSelIndex = static_cast<int>(SendMessage(hList, LB_GETCURSEL, 0, 0));
+    if (prevSelIndex != LB_ERR) {
+        wchar_t prevEntry[600];
+        SendMessageW(hList, LB_GETTEXT, prevSelIndex, reinterpret_cast<LPARAM>(prevEntry));
+        std::wstring prevEntryText = prevEntry;
+        size_t sepPos = prevEntryText.find(L" - ");
+        if (sepPos != std::wstring::npos) {
+            selectedPortName = prevEntryText.substr(0, sepPos);
+        }
+    }
+
     SendMessage(hList, LB_RESETCONTENT, 0, 0);
 
     std::vector<ComPortInfo> ports = EnumerateComPorts();
@@ -17,15 +33,16 @@ static void RefreshPortsListBox(HWND hDlg) {
         std::lock_guard<std::mutex> lock(g_ComSettingsMutex);
         activePortName = g_ComPortName;
     }
+    if (selectedPortName.empty()) selectedPortName = activePortName;
 
     for (const auto& port : ports) {
         bool isActive = (port.portName == activePortName);
         bool isConnected = isActive && g_hSerial.load(std::memory_order_acquire) != INVALID_HANDLE_VALUE;
         wchar_t entry[600];
         swprintf_s(entry, L"%s - %s%s", port.portName.c_str(), port.deviceDesc.c_str(),
-            isActive ? (isConnected ? L" [ACTIVE]" : L" [ACTIVE, DISCONNECTED]") : L"");
+            isActive ? (isConnected ? L" [ACTIVE]" : L" [ACTIVE, BAD PORT]") : L"");
         int index = static_cast<int>(SendMessageW(hList, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(entry)));
-        if (isActive) {
+        if (port.portName == selectedPortName) {
             SendMessage(hList, LB_SETCURSEL, index, 0);
         }
     }
@@ -58,10 +75,34 @@ INT_PTR CALLBACK PortManagerDlgProc(HWND hDlg, UINT message, WPARAM wParam, LPAR
             return (INT_PTR)TRUE;
 
         case IDC_PORTS_RESET: {
-            bool ok = ResetComPort();
-            MessageBoxW(hDlg,
-                ok ? L"Port reset and reconnected successfully." : L"Failed to reopen the port after reset.",
-                L"Reset Port", ok ? MB_ICONINFORMATION : MB_ICONERROR);
+            ResetComPort();
+            // No popup on failure: the HUD and this dialog's list both surface a bad/disconnected port.
+            RefreshPortsListBox(hDlg);
+            return (INT_PTR)TRUE;
+        }
+
+        case IDC_PORTS_CONNECT: {
+            HWND hList = GetDlgItem(hDlg, IDC_PORTS_LIST);
+            int selIndex = static_cast<int>(SendMessage(hList, LB_GETCURSEL, 0, 0));
+            if (selIndex == LB_ERR) {
+                return (INT_PTR)TRUE;
+            }
+            wchar_t entry[600];
+            SendMessageW(hList, LB_GETTEXT, selIndex, reinterpret_cast<LPARAM>(entry));
+            // Entries are formatted as "PortName - Description[...]"; extract the port name.
+            std::wstring entryText = entry;
+            size_t sepPos = entryText.find(L" - ");
+            if (sepPos == std::wstring::npos) {
+                return (INT_PTR)TRUE;
+            }
+            std::wstring selectedPort = entryText.substr(0, sepPos);
+            {
+                std::lock_guard<std::mutex> lock(g_ComSettingsMutex);
+                g_ComPortName = selectedPort;
+            }
+            SaveComPortName(selectedPort);
+            ResetComPort();
+            // No popup on failure: the HUD and this dialog's list both surface a bad/disconnected port.
             RefreshPortsListBox(hDlg);
             return (INT_PTR)TRUE;
         }
