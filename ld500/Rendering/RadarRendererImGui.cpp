@@ -12,6 +12,11 @@
 #if defined(_WIN32)
 #include <windows.h>
 #include <GL/gl.h>
+// The Windows SDK's GL/gl.h only declares OpenGL 1.1 (GL_CLAMP_TO_EDGE is 1.2+), but the actual
+// driver (opengl32.dll) supports it fine - the constant itself is just a stable enum value.
+#ifndef GL_CLAMP_TO_EDGE
+#define GL_CLAMP_TO_EDGE 0x812F
+#endif
 #elif defined(__APPLE__)
 #include <OpenGL/gl.h>
 #else
@@ -124,7 +129,7 @@ namespace {
         float ux = dx / len, uy = dy / len;
         float pos = 0.0f;
         while (pos < len) {
-            float segEnd = std::min(pos + dashLen, len);
+            float segEnd = (std::min)(pos + dashLen, len);
             dl->AddLine(ImVec2(p1.x + ux * pos, p1.y + uy * pos), ImVec2(p1.x + ux * segEnd, p1.y + uy * segEnd), col);
             pos = segEnd + gapLen;
         }
@@ -228,7 +233,7 @@ namespace RadarRendererImGui {
 
         int centerX = width / 2;
         int centerY = height / 2;
-        int maxRadius = (std::min(width, height) / 2) - 40;
+        int maxRadius = ((std::min)(width, height) / 2) - 40;
         if (maxRadius < 1) maxRadius = 1;
 
         RadarGridSnapshot snapshot = model.Snapshot();
@@ -248,9 +253,9 @@ namespace RadarRendererImGui {
         const int gridMaxRadiusSq = gridCenter * gridCenter;
         // Brightness multiplier for non-shadow empty-cell background, adjustable via the top-right slider.
         double bgIntensity = s_BackgroundIntensity;
-        uint8_t bgR = static_cast<uint8_t>(std::min(255.0, 10.0 * bgIntensity));
-        uint8_t bgG = static_cast<uint8_t>(std::min(255.0, 16.0 * bgIntensity));
-        uint8_t bgB = static_cast<uint8_t>(std::min(255.0, 10.0 * bgIntensity));
+        uint8_t bgR = static_cast<uint8_t>((std::min)(255.0, 10.0 * bgIntensity));
+        uint8_t bgG = static_cast<uint8_t>((std::min)(255.0, 16.0 * bgIntensity));
+        uint8_t bgB = static_cast<uint8_t>((std::min)(255.0, 10.0 * bgIntensity));
         for (int y = 0; y < GRID_SIZE; ++y) {
             uint8_t* row = s_GridPixels.data() + static_cast<size_t>(y) * stride;
             int dy = y - gridCenter;
